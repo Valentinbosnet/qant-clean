@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_PRISMA_URL")
+}
+
+model User {
+  id                    String    @id @default(cuid())
+  name                  String?
+  email                 String    @unique
+  emailVerified         DateTime?
+  password              String
+  image                 String?
+  role                  String    @default("user")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  verificationToken     String?
+  verificationTokenExpires DateTime?
+  resetPasswordToken    String?
+  resetPasswordExpires  DateTime?
+  membership            Membership?
+  portfolios            Portfolio[]
+  connectedAccounts     ConnectedAccount[]
+  transactions          Transaction[]
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      String   @default("free")
+  status    String   @default("active")
+  stripeCustomerId String?
+  stripeSubscriptionId String?
+  currentPeriodEnd DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Portfolio {
+  id        String   @id @default(cuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  holdings  Holding[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Holding {
+  id          String   @id @default(cuid())
+  portfolioId String
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  symbol      String
+  name        String
+  quantity    Float
+  purchasePrice Float
+  currentPrice Float?
+  transactions Transaction[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ConnectedAccount {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institutionId String
+  institutionName String
+  accountId     String
+  accountName   String
+  accountType   String
+  accountMask   String
+  balanceAvailable Float?
+  balanceCurrent Float?
+  accessToken   String?
+  itemId        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  holdingId String?
+  holding   Holding? @relation(fields: [holdingId], references: [id], onDelete: SetNull)
+  type      String   // buy, sell, deposit, withdraw
+  symbol    String?
+  quantity  Float?
+  price     Float?
+  amount    Float
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
