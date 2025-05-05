@@ -1,8 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Configuration ultra-minimale sans personnalisation
+  reactStrictMode: false,
+  swcMinify: false,
+
+  // Désactiver l'app directory
   experimental: {
-    serverActions: true,
+    appDir: false,
   },
+
+  // Ignorer les erreurs
   eslint: {
     ignoreDuringBuilds: true,
   },
