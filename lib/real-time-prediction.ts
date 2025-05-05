@@ -1,6 +1,5 @@
-// Version ultra simplifiée pour éviter les problèmes de build
-
-export interface PredictionData {
+// Version ultra-minimaliste
+export interface RealTimePrediction {
   symbol: string
   name: string
   currentPrice: number
@@ -8,15 +7,12 @@ export interface PredictionData {
   timestamp: string
 }
 
-export async function generateRealTimePrediction(symbol: string): Promise<PredictionData> {
-  // Version simplifiée pour simuler des prédictions
-  const currentPrice = Math.round((50 + Math.random() * 450) * 100) / 100
-
+export async function generateRealTimePrediction(symbol: string): Promise<RealTimePrediction> {
   return {
-    symbol,
+    symbol: symbol,
     name: `${symbol} Inc.`,
-    currentPrice,
-    prediction: Math.random() > 0.5 ? "Hausse attendue" : "Baisse probable",
+    currentPrice: 100,
+    prediction: "Stable",
     timestamp: new Date().toISOString(),
   }
 }

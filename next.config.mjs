@@ -1,66 +1,63 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Désactiver les optimisations qui peuvent causer des problèmes
+  // Désactiver toutes les optimisations
   reactStrictMode: false,
   swcMinify: false,
   
-  // Ignorer les erreurs de lint et TypeScript pendant le build
+  // Ignorer toutes les erreurs pendant le build
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  
-  // Configuration des images
   images: {
     unoptimized: true,
   },
   
-  // Configuration webpack simplifiée et robuste
-  webpack: (config, { isServer }) => {
-    // Polyfills pour le navigateur (côté client uniquement)
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
+  // Désactiver la compression
+  compress: false,
+  
+  // Configuration webpack minimale
+  webpack: (config) => {
+    // Désactiver toute optimisation webpack
+    config.optimization = {
+      ...config.optimization,
+      minimize: false,
+      minimizer: [],
+      splitChunks: false,
+    };
+    
+    // Polyfills pour le navigateur
+    config.resolve = {
+      ...config.resolve,
+      fallback: {
+        ...config.resolve?.fallback,
         fs: false,
-        net: false,
-        tls: false,
+        path: false,
+        os: false,
         crypto: false,
         stream: false,
         http: false,
         https: false,
         zlib: false,
-        path: false,
-        os: false,
+        net: false,
+        tls: false,
         child_process: false,
-      };
-    }
-    
-    // Ignorer les avertissements problématiques
-    config.ignoreWarnings = [
-      { message: /Critical dependency/ },
-      { message: /Failed to parse source map/ },
-      { message: /Can't resolve '(fs|path|os)'/ },
-    ];
+        dns: false,
+        module: false,
+      },
+    };
     
     return config;
   },
   
-  // Désactiver les optimisations expérimentales
+  // Désactiver les fonctionnalités expérimentales
   experimental: {
     serverActions: false,
-    serverComponents: true,
+    serverComponents: false,
     appDir: true,
   },
-  
-  // Augmenter les limites de taille des assets
-  compiler: {
-    styledComponents: true,
-  },
-  
-  // Désactiver la compression pour le débogage
-  compress: false,
 };
 
 export default nextConfig;
