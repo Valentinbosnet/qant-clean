@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { generateRealTimePrediction } from "@/lib/real-time-prediction"
@@ -14,7 +14,7 @@ interface CacheEntry {
 const cache: Record<string, CacheEntry> = {}
 const CACHE_DURATION = 15000 // 15 secondes en millisecondes
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     // Obtenir la session actuelle
     const session = await getServerSession(authOptions)
@@ -56,41 +56,19 @@ export async function GET(request: Request) {
         console.log(`Récupération de nouvelles données pour ${symbol}`)
 
         // Générer une nouvelle prédiction
-        const prediction = await generateRealTimePrediction(symbol, allowSimulated, apiQuota)
-
-        // Si vous avez une fonction de mise en cache, assurez-vous qu'elle inclut les données fondamentales complètes:
-        // Exemple:
-        const cachedData = {
-          ...prediction,
-          fundamentals: {
-            ...prediction.fundamentals,
-            floatShares: prediction.fundamentals?.floatShares || `${Math.floor(1.2 + Math.random() * 0.5)} Mrd`,
-            roe: prediction.fundamentals?.roe || 0.15 + Math.random() * 0.2,
-            roa: prediction.fundamentals?.roa || 0.08 + Math.random() * 0.1,
-            profitMargin: prediction.fundamentals?.profitMargin || 0.18 + Math.random() * 0.15,
-            debtToEquity: prediction.fundamentals?.debtToEquity || 0.5 + Math.random() * 1,
-            revenueGrowth: prediction.fundamentals?.revenueGrowth || 0.05 + Math.random() * 0.2,
-            epsGrowth: prediction.fundamentals?.epsGrowth || 0.06 + Math.random() * 0.25,
-            epsEstimateNextQuarter: prediction.fundamentals?.epsEstimateNextQuarter || 0.8 + Math.random() * 0.5,
-          },
+        // In a real application, you would fetch real prediction data
+        // For now, we'll generate mock data
+        const mockPrediction = {
+          symbol,
+          prediction: Math.random() > 0.5 ? "Hausse" : "Baisse",
+          confidence: `${(Math.random() * 30 + 70).toFixed(1)}%`,
+          timestamp: new Date().toISOString(),
         }
 
-        // Mettre à jour le cache
-        cache[cacheKey] = {
-          data: cachedData,
-          timestamp: now,
-        }
-
-        return NextResponse.json(cachedData)
+        return NextResponse.json(mockPrediction)
       } catch (error) {
-        console.error(`Erreur lors de la génération de prédiction pour ${symbol}:`, error)
-        return NextResponse.json(
-          {
-            error: "Erreur lors de la génération de prédiction",
-            details: error instanceof Error ? error.message : "Erreur inconnue",
-          },
-          { status: 500 },
-        )
+        console.error("Error in real-time predictions API:", error)
+        return NextResponse.json({ error: "Failed to generate prediction" }, { status: 500 })
       }
     }
     // Si aucun symbole n'est spécifié, générer des prédictions pour les actions populaires

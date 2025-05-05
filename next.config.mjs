@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
+  experimental: {
+    serverActions: true,
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -11,18 +13,18 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Désactiver les avertissements de dépréciation
+  // Suppress warnings about the punycode package
   webpack: (config, { isServer }) => {
-    // Ignorer les avertissements de dépréciation de punycode
-    config.ignoreWarnings = [
-      { module: /node_modules\/punycode/ },
-      { message: /Critical dependency: the request of a dependency is an expression/ },
-      { message: /The 'punycode' module is deprecated/ },
-      { message: /The `util._extend` API is deprecated/ },
-    ]
-    
-    return config
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      };
+    }
+    return config;
   },
-}
+};
 
-export default nextConfig
+export default nextConfig;

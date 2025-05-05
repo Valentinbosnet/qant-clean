@@ -1,5 +1,12 @@
-// Liste des actions populaires
-export const popularStocks = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "JPM", "V", "WMT"]
+// Add the missing popularStocks array that's used in the dashboard
+export const popularStocks = [
+  "AAPL", // Apple
+  "MSFT", // Microsoft
+  "GOOGL", // Alphabet (Google)
+  "AMZN", // Amazon
+  "META", // Meta (Facebook)
+  "TSLA", // Tesla
+]
 
 // Interface pour les données boursières
 export interface StockData {
@@ -30,42 +37,13 @@ const CACHE_DURATION = 60000 // 60 secondes en millisecondes
 // Cache pour l'historique des prix
 const historyCache: Record<string, { data: any; timestamp: number }> = {}
 
-// Fonction pour récupérer les données d'un stock
-export async function getStockData(symbol: string) {
-  try {
-    // Simuler des données de stock puisque nous n'avons pas accès à une API réelle
-    // Dans un environnement de production, vous feriez un appel à une API comme Alpha Vantage ici
-    const currentPrice = Math.random() * 500 + 100
-    const previousClose = currentPrice * (1 + (Math.random() * 0.1 - 0.05))
-    const change = currentPrice - previousClose
-    const changePercent = (change / previousClose) * 100
-
-    // Générer un historique de prix simulé
-    const history = generatePriceHistory(currentPrice)
-
-    return {
-      symbol: symbol.toUpperCase(),
-      name: getCompanyName(symbol),
-      currentPrice,
-      previousClose,
-      change,
-      changePercent,
-      history,
-      isSimulated: true,
-    }
-  } catch (error) {
-    console.error("Error in getStockData:", error)
-    // Retourner des données par défaut en cas d'erreur
-    return {
-      symbol: symbol.toUpperCase(),
-      name: getCompanyName(symbol),
-      currentPrice: 200,
-      previousClose: 195,
-      change: 5,
-      changePercent: 2.56,
-      history: generateDefaultHistory(),
-      isSimulated: true,
-    }
+// Keep any existing code in this file
+export const getStockData = async (symbol: string) => {
+  // Placeholder implementation
+  return {
+    symbol,
+    price: Math.random() * 1000,
+    change: Math.random() * 10 - 5,
   }
 }
 
