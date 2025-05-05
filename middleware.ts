@@ -1,63 +1,57 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-// Define which paths require authentication
-const authRequiredPaths = [
-  "/dashboard",
-  "/portfolio",
-  "/transactions",
-  "/predictions",
-  "/settings",
-  "/real-time-predictions",
-  "/progressive-analysis",
-  "/api-status",
+// Define public paths that don't require authentication
+const publicPaths = [
+  "/login",
+  "/register",
+  "/api/auth",
+  "/verify-email",
+  "/pricing",
+  "/api/stripe",
+  "/api/dev",
+  "/favicon.ico",
+  "/debug",
+  "/api/debug",
 ]
 
-// Define which paths should be accessible only with a subscription
-const subscriptionRequiredPaths = ["/real-time-predictions", "/progressive-analysis"]
+// Check if a path is public
+function isPublicPath(path: string): boolean {
+  return publicPaths.some((publicPath) => path.startsWith(publicPath))
+}
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Check if the path requires authentication
-  const isAuthRequired = authRequiredPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`))
-
-  // Check if the path requires a subscription
-  const isSubscriptionRequired = subscriptionRequiredPaths.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`),
-  )
-
-  // Get authentication cookies
-  const hasSession = request.cookies.has("app-session") || request.cookies.has("next-auth.session-token")
-
-  // Get subscription cookie
-  const hasSubscription = request.cookies.has("has-subscription")
-
-  // If authentication is required but user is not authenticated
-  if (isAuthRequired && !hasSession) {
-    const url = new URL("/login", request.url)
-    url.searchParams.set("callbackUrl", pathname)
-    return NextResponse.redirect(url)
+  // Skip static files and API routes
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/static") ||
+    pathname.startsWith("/images") ||
+    pathname.startsWith("/favicon")
+  ) {
+    return NextResponse.next()
   }
 
-  // If subscription is required but user doesn't have one
-  if (isSubscriptionRequired && !hasSubscription) {
-    return NextResponse.redirect(new URL("/pricing", request.url))
+  // Allow access to public paths
+  if (isPublicPath(pathname)) {
+    return NextResponse.next()
+  }
+
+  // Check if user is authenticated
+  const hasSession = request.cookies.has("app-session") || request.cookies.has("next-auth.session-token")
+
+  // If not authenticated, redirect to login
+  if (!hasSession) {
+    const loginUrl = new URL("/login", request.url)
+    loginUrl.searchParams.set("callbackUrl", pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
   return NextResponse.next()
 }
 
+// Configure middleware to run on all routes except NextAuth API
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (public directory)
-     * - api routes that don't require auth
-     */
-    "/((?!_next/static|_next/image|favicon.ico|public|api/auth|api/register|api/verify-email|api/debug).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|public|api/auth/\\[...nextauth\\]).*)"],
 }

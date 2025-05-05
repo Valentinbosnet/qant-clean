@@ -1,125 +1,53 @@
-// Gestionnaire de quota d'API pour éviter de dépasser les limites
-export class ApiQuotaManager {
-  private static instance: ApiQuotaManager
-  private requestTimestamps: number[] = []
-  private dailyRequestCount = 0
-  private lastDayReset = new Date().setHours(0, 0, 0, 0)
+// Simple API quota manager to prevent exceeding rate limits
+class ApiQuotaManager {
+  private maxRequests = 5
+  private requestsRemaining = 5
+  private resetTime: number = Date.now() + 60000 // Reset after 1 minute
 
-  // Limites de l'API Alpha Vantage gratuite
-  private readonly REQUESTS_PER_MINUTE = 6
-  private readonly REQUESTS_PER_DAY = 500
-
-  private constructor() {
-    // Initialiser le gestionnaire
-    console.log("[API Quota] Gestionnaire de quota initialisé")
+  constructor(maxRequests = 5) {
+    this.maxRequests = maxRequests
+    this.requestsRemaining = maxRequests
   }
 
-  public static getInstance(): ApiQuotaManager {
-    if (!ApiQuotaManager.instance) {
-      ApiQuotaManager.instance = new ApiQuotaManager()
-    }
-    return ApiQuotaManager.instance
+  canMakeRequest(): boolean {
+    this.checkReset()
+    return this.requestsRemaining > 0
   }
 
-  // Vérifier si on peut faire une requête
-  public canMakeRequest(): boolean {
-    // Réinitialiser le compteur quotidien si nécessaire
-    const today = new Date().setHours(0, 0, 0, 0)
-    if (today > this.lastDayReset) {
-      this.dailyRequestCount = 0
-      this.lastDayReset = today
-      console.log("[API Quota] Compteur quotidien réinitialisé")
+  reserveRequests(count: number): boolean {
+    this.checkReset()
+    if (this.requestsRemaining >= count) {
+      this.requestsRemaining -= count
+      return true
     }
-
-    // Vérifier le quota quotidien
-    if (this.dailyRequestCount >= this.REQUESTS_PER_DAY) {
-      console.log("[API Quota] Quota quotidien dépassé")
-      return false
-    }
-
-    // Nettoyer les timestamps plus anciens que 1 minute
-    const now = Date.now()
-    this.requestTimestamps = this.requestTimestamps.filter((timestamp) => now - timestamp < 60000)
-
-    // Vérifier le quota par minute
-    const minuteRequests = this.requestTimestamps.length
-    const canMakeRequest = minuteRequests < this.REQUESTS_PER_MINUTE
-
-    if (!canMakeRequest) {
-      console.log(`[API Quota] Limite par minute atteinte (${minuteRequests}/${this.REQUESTS_PER_MINUTE})`)
-    }
-
-    return canMakeRequest
+    return false
   }
 
-  // Enregistrer une nouvelle requête
-  public recordRequest(): void {
-    this.requestTimestamps.push(Date.now())
-    this.dailyRequestCount++
-    console.log(
-      `[API Quota] Requête enregistrée. Minute: ${this.requestTimestamps.length}/${this.REQUESTS_PER_MINUTE}, Jour: ${this.dailyRequestCount}/${this.REQUESTS_PER_DAY}`,
-    )
-  }
-
-  // Réserver plusieurs requêtes à l'avance
-  public reserveRequests(count: number): boolean {
-    // Vérifier si nous avons assez de quota disponible
-    if (this.getAvailableRequestsPerMinute() < count) {
-      console.log(`[API Quota] Impossible de réserver ${count} requêtes, quota insuffisant`)
-      return false
+  useRequest(): boolean {
+    this.checkReset()
+    if (this.requestsRemaining > 0) {
+      this.requestsRemaining--
+      return true
     }
-
-    // Réserver les requêtes
-    const now = Date.now()
-    for (let i = 0; i < count; i++) {
-      this.requestTimestamps.push(now)
-    }
-    this.dailyRequestCount += count
-
-    console.log(
-      `[API Quota] ${count} requêtes réservées. Minute: ${this.requestTimestamps.length}/${this.REQUESTS_PER_MINUTE}, Jour: ${this.dailyRequestCount}/${this.REQUESTS_PER_DAY}`,
-    )
-    return true
+    return false
   }
 
-  // Obtenir le nombre de requêtes disponibles par minute
-  public getAvailableRequestsPerMinute(): number {
-    // Nettoyer les timestamps plus anciens que 1 minute
-    const now = Date.now()
-    this.requestTimestamps = this.requestTimestamps.filter((timestamp) => now - timestamp < 60000)
-
-    return Math.max(0, this.REQUESTS_PER_MINUTE - this.requestTimestamps.length)
-  }
-
-  // Obtenir les informations de quota restant
-  public getQuotaInfo(): {
-    requestsThisMinute: number
-    minuteLimit: number
-    requestsToday: number
-    dailyLimit: number
-    canMakeRequest: boolean
-    minuteResetTime: Date
-    availableRequestsPerMinute: number
-  } {
-    const now = Date.now()
-    // Nettoyer les timestamps plus anciens que 1 minute
-    this.requestTimestamps = this.requestTimestamps.filter((timestamp) => now - timestamp < 60000)
-
-    // Calculer le temps restant pour la réinitialisation de la minute
-    const oldestTimestamp = this.requestTimestamps.length > 0 ? Math.min(...this.requestTimestamps) : now
-    const minuteResetTime = new Date(oldestTimestamp + 60000)
-
+  getQuotaInfo() {
+    this.checkReset()
     return {
-      requestsThisMinute: this.requestTimestamps.length,
-      minuteLimit: this.REQUESTS_PER_MINUTE,
-      requestsToday: this.dailyRequestCount,
-      dailyLimit: this.REQUESTS_PER_DAY,
-      canMakeRequest: this.canMakeRequest(),
-      minuteResetTime,
-      availableRequestsPerMinute: this.getAvailableRequestsPerMinute(),
+      requestsRemaining: this.requestsRemaining,
+      maxRequests: this.maxRequests,
+      resetIn: Math.max(0, this.resetTime - Date.now()),
+    }
+  }
+
+  private checkReset() {
+    if (Date.now() > this.resetTime) {
+      this.requestsRemaining = this.maxRequests
+      this.resetTime = Date.now() + 60000 // Reset after 1 minute
     }
   }
 }
 
-// Exporter une instance pour utilisation dans l'application
-export const apiQuota = ApiQuotaManager.getInstance()
+// Export a singleton instance
+export const apiQuota = new ApiQuotaManager()
