@@ -1,14 +1,6 @@
 // Popular stocks list
-export const popularStocks = [
-  "AAPL", // Apple
-  "MSFT", // Microsoft
-  "GOOGL", // Alphabet (Google)
-  "AMZN", // Amazon
-  "META", // Meta (Facebook)
-  "TSLA", // Tesla
-]
+export const popularStocks = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA"]
 
-// Stock data interface
 export interface StockData {
   symbol: string
   name: string
@@ -25,9 +17,9 @@ export interface StockData {
   isSimulated: boolean
 }
 
-// Get stock data for a symbol
+// Voici la fonction manquante getStockData
 export async function getStockData(symbol: string) {
-  // Generate simulated data
+  // Générer des données simulées
   const currentPrice = Math.random() * 500 + 100
   const previousClose = currentPrice * (1 + (Math.random() * 0.1 - 0.05))
   const change = currentPrice - previousClose
@@ -36,8 +28,8 @@ export async function getStockData(symbol: string) {
   return {
     symbol: symbol.toUpperCase(),
     name: getCompanyName(symbol),
-    currentPrice,
-    previousClose,
+    price: currentPrice,
+    previousPrice: previousClose,
     change,
     changePercent,
     history: generatePriceHistory(currentPrice),
@@ -46,7 +38,7 @@ export async function getStockData(symbol: string) {
 }
 
 // Get stock quote
-export async function getStockQuote(symbol: string): Promise<StockData | null> {
+export async function getStockQuote(symbol: string): Promise<StockData> {
   // Generate simulated stock data
   const currentPrice = Math.random() * 500 + 100
   const previousClose = currentPrice * (1 + (Math.random() * 0.1 - 0.05))
