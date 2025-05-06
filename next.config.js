@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
-module.exports = {
-  reactStrictMode: true,
+const nextConfig = {
+  experimental: {
+    appDir: true,
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -11,3 +13,5 @@ module.exports = {
     unoptimized: true,
   },
 }
+
+module.exports = nextConfig

@@ -1,18 +1,11 @@
 export default function Home() {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        height: "100vh",
-        fontFamily: "sans-serif",
-      }}
-    >
+    <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
       <h1>Stock Analysis App</h1>
       <p>Welcome to the Stock Analysis Application</p>
+
       <div style={{ marginTop: "20px" }}>
+        <h2>Popular Stocks</h2>
         <ul>
           <li>Apple (AAPL) - $150.25</li>
           <li>Microsoft (MSFT) - $310.80</li>
