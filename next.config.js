@@ -1,26 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Configuration ultra-minimale sans personnalisation
   reactStrictMode: true,
-  typescript: {
-    // !! WARN !!
-    // Ignoring type checking for build
-    ignoreBuildErrors: true,
-  },
   eslint: {
-    // !! WARN !!
-    // Ignoring ESLint errors for build
     ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
   },
   images: {
     unoptimized: true,
-  },
-  webpack: (config) => {
-    // Configure alias
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      "@": __dirname,
-    }
-    return config
   },
 }
 
