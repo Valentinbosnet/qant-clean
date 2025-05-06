@@ -1,3 +1,3 @@
 export default function handler(req, res) {
-  res.status(200).json({ name: "Finance API" })
+  res.status(200).json({ name: "John Doe" })
 }

@@ -1,20 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Configuration ultra-minimale sans personnalisation
   reactStrictMode: true,
-  swcMinify: false,
-
-  // Désactiver l'app directory
-  experimental: {
-    appDir: false,
-  },
-
-  // Ignorer les erreurs
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
+    // !! WARN !!
+    // Ignoring type checking for build
     ignoreBuildErrors: true,
+  },
+  eslint: {
+    // !! WARN !!
+    // Ignoring ESLint errors for build
+    ignoreDuringBuilds: true,
   },
   images: {
     unoptimized: true,
