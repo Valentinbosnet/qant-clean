@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  // Configuration ultra-minimale sans personnalisation
+module.exports = {
   reactStrictMode: true,
   eslint: {
     ignoreDuringBuilds: true,
@@ -12,5 +11,3 @@ const nextConfig = {
     unoptimized: true,
   },
 }
-
-module.exports = nextConfig
