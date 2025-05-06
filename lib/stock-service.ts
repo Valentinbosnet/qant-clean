@@ -1,43 +1,60 @@
-// Liste des actions populaires
 export const popularStocks = ["AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA"]
 
-// Interface pour les données boursières
 export interface StockData {
   symbol: string
   name: string
   currentPrice: number
+  previousPrice: number
+  change: number
+  changePercent: number
+  lastUpdated: string
 }
 
-// Fonction pour obtenir les données d'une action
-export function getStockData(symbol: string) {
-  return {
-    symbol,
+export function getStockQuote(symbol: string): Promise<StockData | null> {
+  return Promise.resolve({
+    symbol: symbol,
     name: symbol + " Inc.",
-    price: 100,
+    currentPrice: 150,
+    previousPrice: 140,
+    change: 10,
+    changePercent: 0.05,
+    lastUpdated: new Date().toISOString(),
+  })
+}
+
+export async function getStockHistory(symbol: string): Promise<{ timestamp: string; price: number }[]> {
+  const now = new Date()
+  const history = []
+
+  for (let i = 0; i < 30; i++) {
+    const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000)
+    const price = 100 + Math.random() * 10
+    history.push({ timestamp: date.toISOString(), price })
   }
+
+  return Promise.resolve(history)
 }
 
-// Fonction pour obtenir une cotation d'action
-export function getStockQuote(symbol: string) {
-  return {
-    symbol,
-    name: symbol + " Inc.",
-    currentPrice: 100,
-  }
-}
-
-// Fonction pour obtenir l'historique des prix
-export function getStockHistory(symbol: string) {
-  return [{ date: "2023-01-01", price: 100 }]
-}
-
-// Fonction pour obtenir plusieurs actions
-export function getMultipleStocks(symbols: string[]) {
+export async function getMultipleStocks(symbols: string[]): Promise<StockData[]> {
   return symbols.map((symbol) => ({
-    symbol,
+    symbol: symbol,
     name: symbol + " Inc.",
-    currentPrice: 100,
+    currentPrice: 100 + Math.random() * 10,
+    previousPrice: 90 + Math.random() * 10,
+    change: Math.random() * 5,
+    changePercent: Math.random() * 0.05,
+    lastUpdated: new Date().toISOString(),
   }))
 }
 
-// Réexporter depuis le service from '../services/stockService'
+export function getStockData(symbol: string): Promise<StockData | null> {
+  return Promise.resolve({
+    symbol: symbol,
+    name: symbol + " Inc.",
+    currentPrice: 100,
+    previousPrice: 90,
+    change: 10,
+    changePercent: 0.1,
+    lastUpdated: new Date().toISOString(),
+  })
+}
