@@ -14,6 +14,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  webpack: (config) => {
+    // Configure alias
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@": __dirname,
+    }
+    return config
+  },
 }
 
 module.exports = nextConfig
