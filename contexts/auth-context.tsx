@@ -31,13 +31,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // S'assurer que nous sommes côté client
   useEffect(() => {
     setIsClient(true)
+    console.log("AuthProvider monté côté client")
   }, [])
 
   // Fonction pour rafraîchir la session
   const refreshSession = async () => {
     try {
+      console.log("Rafraîchissement de la session...")
       const supabase = getClientSupabase()
-      if (!supabase) return
+      if (!supabase) {
+        console.error("Client Supabase non disponible")
+        return
+      }
 
       const {
         data: { session },
@@ -49,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
+      console.log("Session récupérée:", session ? "Valide" : "Nulle")
       setSession(session)
       setUser(session?.user || null)
       setIsAuthenticated(!!session)
@@ -71,14 +77,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    console.log("Initialisation de la session...")
     fetchSession()
 
     const supabase = getClientSupabase()
-    if (!supabase) return
+    if (!supabase) {
+      console.error("Client Supabase non disponible pour les événements d'authentification")
+      return
+    }
 
+    console.log("Configuration des écouteurs d'événements d'authentification")
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log("Événement d'authentification:", _event)
       setSession(session)
       setUser(session?.user || null)
       setIsAuthenticated(!!session)
@@ -115,22 +127,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => {
+      console.log("Nettoyage des écouteurs d'événements d'authentification")
       subscription?.unsubscribe()
     }
   }, [isClient, toast])
 
   const signIn = async (email: string, password: string) => {
     try {
+      console.log("Tentative de connexion avec:", email)
       const supabase = getClientSupabase()
       if (!supabase) {
+        console.error("Client Supabase non disponible pour la connexion")
         return { error: { message: "Client Supabase non disponible" } as AuthError }
       }
 
+      console.log("Appel à supabase.auth.signInWithPassword")
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
+      if (error) {
+        console.error("Erreur de connexion:", error)
+        return { error }
+      }
+
+      console.log("Connexion réussie, session:", data.session ? "Valide" : "Nulle")
       if (!error && data.session) {
         // Mettre à jour l'état immédiatement après une connexion réussie
         setSession(data.session)
@@ -138,20 +160,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsAuthenticated(true)
       }
 
-      return { error }
+      return { error: null }
     } catch (err) {
-      console.error("Erreur lors de la connexion:", err)
+      console.error("Exception lors de la connexion:", err)
       return { error: err as AuthError }
     }
   }
 
   const signUp = async (email: string, password: string) => {
     try {
+      console.log("Tentative d'inscription avec:", email)
       const supabase = getClientSupabase()
       if (!supabase) {
+        console.error("Client Supabase non disponible pour l'inscription")
         return { data: null, error: { message: "Client Supabase non disponible" } as AuthError }
       }
 
+      console.log("Appel à supabase.auth.signUp")
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -160,20 +185,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       })
 
+      if (error) {
+        console.error("Erreur d'inscription:", error)
+      } else {
+        console.log("Inscription réussie, vérification d'email requise")
+      }
+
       return { data, error }
     } catch (err) {
-      console.error("Erreur lors de l'inscription:", err)
+      console.error("Exception lors de l'inscription:", err)
       return { data: null, error: err as AuthError }
     }
   }
 
   const resendVerificationEmail = async (email: string) => {
     try {
+      console.log("Tentative de renvoi d'email de vérification pour:", email)
       const supabase = getClientSupabase()
       if (!supabase) {
+        console.error("Client Supabase non disponible pour le renvoi d'email")
         return { error: { message: "Client Supabase non disponible" } as AuthError }
       }
 
+      console.log("Appel à supabase.auth.resend")
       const { error } = await supabase.auth.resend({
         type: "signup",
         email,
@@ -182,22 +216,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       })
 
+      if (error) {
+        console.error("Erreur lors du renvoi d'email:", error)
+      } else {
+        console.log("Email de vérification renvoyé avec succès")
+      }
+
       return { error }
     } catch (err) {
-      console.error("Erreur lors de l'envoi de l'email de vérification:", err)
+      console.error("Exception lors de l'envoi de l'email de vérification:", err)
       return { error: err as AuthError }
     }
   }
 
   const signOut = async () => {
     try {
+      console.log("Tentative de déconnexion")
       const supabase = getClientSupabase()
-      if (!supabase) return
+      if (!supabase) {
+        console.error("Client Supabase non disponible pour la déconnexion")
+        return
+      }
 
+      console.log("Appel à supabase.auth.signOut")
       await supabase.auth.signOut()
       setUser(null)
       setSession(null)
       setIsAuthenticated(false)
+      console.log("Déconnexion réussie")
     } catch (error) {
       console.error("Erreur lors de la déconnexion:", error)
     }
@@ -218,6 +264,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Si nous ne sommes pas côté client, retourner les valeurs par défaut
   if (!isClient) {
+    console.log("Rendu côté serveur, utilisation des valeurs par défaut")
     return <AuthContext.Provider value={defaultContextValue}>{children}</AuthContext.Provider>
   }
 

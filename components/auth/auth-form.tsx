@@ -16,6 +16,31 @@ import { z } from "zod"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import Link from "next/link"
 
+// Fonction utilitaire pour gérer les erreurs réseau
+const handleNetworkError = (error: any, toast: any) => {
+  console.error("Erreur réseau:", error)
+
+  if (error.message === "Failed to fetch") {
+    toast({
+      title: "Erreur de connexion",
+      description: "Impossible de se connecter au serveur. Vérifiez votre connexion internet ou réessayez plus tard.",
+      variant: "destructive",
+    })
+    return true
+  }
+
+  if (error.message && error.message.includes("NetworkError")) {
+    toast({
+      title: "Erreur réseau",
+      description: "Problème de connexion au serveur. Vérifiez votre connexion internet ou réessayez plus tard.",
+      variant: "destructive",
+    })
+    return true
+  }
+
+  return false
+}
+
 // Schémas de validation
 const emailSchema = z.string().email({ message: "Adresse email invalide" })
 const passwordSchema = z
@@ -37,6 +62,7 @@ export function AuthForm({ defaultTab = "signin" }: AuthFormProps) {
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
   const [registeredEmail, setRegisteredEmail] = useState("")
   const [isClient, setIsClient] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<string>("")
   const { signIn, signUp, resendVerificationEmail } = useAuth()
   const { toast } = useToast()
   const router = useRouter()
@@ -44,6 +70,7 @@ export function AuthForm({ defaultTab = "signin" }: AuthFormProps) {
   // S'assurer que nous sommes côté client
   useEffect(() => {
     setIsClient(true)
+    console.log("AuthForm monté côté client")
   }, [])
 
   const validateForm = () => {
@@ -74,14 +101,24 @@ export function AuthForm({ defaultTab = "signin" }: AuthFormProps) {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("Tentative de connexion avec:", email)
+    setDebugInfo("Tentative de connexion...")
 
-    if (!validateForm() || !isClient) return
+    if (!validateForm() || !isClient) {
+      setDebugInfo("Validation du formulaire échouée ou composant non monté côté client")
+      return
+    }
 
     setIsLoading(true)
+    setDebugInfo("Chargement en cours...")
 
     try {
+      setDebugInfo("Appel à signIn...")
       const { error } = await signIn(email, password)
       if (error) {
+        setDebugInfo(`Erreur de connexion: ${error.message}`)
+        console.error("Erreur de connexion:", error)
+
         if (error.message.includes("Email not confirmed")) {
           setRegistrationSuccess(true)
           setRegisteredEmail(email)
@@ -104,6 +141,7 @@ export function AuthForm({ defaultTab = "signin" }: AuthFormProps) {
           })
         }
       } else {
+        setDebugInfo("Connexion réussie, redirection...")
         toast({
           title: "Connexion réussie",
           description: "Bienvenue sur votre tableau de bord !",
@@ -111,6 +149,19 @@ export function AuthForm({ defaultTab = "signin" }: AuthFormProps) {
         router.push("/")
       }
     } catch (error: any) {
+      console.error("Exception lors de la connexion:", error)
+      setDebugInfo(`Exception: ${error.message || "Erreur inconnue"}`)
+
+      // Gérer spécifiquement les erreurs réseau
+      if (handleNetworkError(error, toast)) {
+        // Ajouter un bouton pour réessayer automatiquement après un délai
+        setTimeout(() => {
+          setDebugInfo("Nouvelle tentative automatique...")
+          handleSignIn(e as any)
+        }, 3000)
+        return
+      }
+
       toast({
         title: "Échec de connexion",
         description: error.message || "Une erreur est survenue",
@@ -123,14 +174,24 @@ export function AuthForm({ defaultTab = "signin" }: AuthFormProps) {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("Tentative d'inscription avec:", email)
+    setDebugInfo("Tentative d'inscription...")
 
-    if (!validateForm() || !isClient) return
+    if (!validateForm() || !isClient) {
+      setDebugInfo("Validation du formulaire échouée ou composant non monté côté client")
+      return
+    }
 
     setIsLoading(true)
+    setDebugInfo("Chargement en cours...")
 
     try {
+      setDebugInfo("Appel à signUp...")
       const { error, data } = await signUp(email, password)
       if (error) {
+        setDebugInfo(`Erreur d'inscription: ${error.message}`)
+        console.error("Erreur d'inscription:", error)
+
         if (error.message.includes("User already registered")) {
           toast({
             title: "Inscription impossible",
@@ -145,6 +206,7 @@ export function AuthForm({ defaultTab = "signin" }: AuthFormProps) {
           })
         }
       } else {
+        setDebugInfo("Inscription réussie, email envoyé")
         setRegistrationSuccess(true)
         setRegisteredEmail(email)
         toast({
@@ -153,6 +215,19 @@ export function AuthForm({ defaultTab = "signin" }: AuthFormProps) {
         })
       }
     } catch (error: any) {
+      console.error("Exception lors de l'inscription:", error)
+      setDebugInfo(`Exception: ${error.message || "Erreur inconnue"}`)
+
+      // Gérer spécifiquement les erreurs réseau
+      if (handleNetworkError(error, toast)) {
+        // Ajouter un bouton pour réessayer automatiquement après un délai
+        setTimeout(() => {
+          setDebugInfo("Nouvelle tentative automatique...")
+          handleSignUp(e as any)
+        }, 3000)
+        return
+      }
+
       toast({
         title: "Échec de l'inscription",
         description: error.message || "Une erreur est survenue",
@@ -313,7 +388,7 @@ export function AuthForm({ defaultTab = "signin" }: AuthFormProps) {
                 </Link>
               </div>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex flex-col gap-4">
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
@@ -323,6 +398,26 @@ export function AuthForm({ defaultTab = "signin" }: AuthFormProps) {
                   "Se connecter"
                 )}
               </Button>
+
+              {/* Bouton de connexion alternatif pour le débogage */}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleSignIn(e as any)
+                }}
+                disabled={isLoading}
+              >
+                Connexion (Alternative)
+              </Button>
+
+              {debugInfo && (
+                <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted rounded-md">
+                  <p>Débogage: {debugInfo}</p>
+                </div>
+              )}
             </CardFooter>
           </form>
         </TabsContent>
@@ -374,7 +469,7 @@ export function AuthForm({ defaultTab = "signin" }: AuthFormProps) {
                 </AlertDescription>
               </Alert>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex flex-col gap-4">
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
@@ -384,6 +479,26 @@ export function AuthForm({ defaultTab = "signin" }: AuthFormProps) {
                   "Créer un compte"
                 )}
               </Button>
+
+              {/* Bouton d'inscription alternatif pour le débogage */}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleSignUp(e as any)
+                }}
+                disabled={isLoading}
+              >
+                Inscription (Alternative)
+              </Button>
+
+              {debugInfo && (
+                <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted rounded-md">
+                  <p>Débogage: {debugInfo}</p>
+                </div>
+              )}
             </CardFooter>
           </form>
         </TabsContent>
