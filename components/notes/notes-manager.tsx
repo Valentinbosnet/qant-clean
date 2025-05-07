@@ -1,197 +1,163 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { useNotes } from "@/hooks/use-notes"
-import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, Plus, Edit, Trash, Save, X } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
-import { fr } from "date-fns/locale"
+import { Loader2, Plus, Pencil, Trash2 } from "lucide-react"
 
 export function NotesManager() {
-  const { notes, isLoading, addNote, updateNote, deleteNote } = useNotes()
-  const { user } = useAuth()
-  const [newTitle, setNewTitle] = useState("")
-  const [newContent, setNewContent] = useState("")
-  const [isAdding, setIsAdding] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [editTitle, setEditTitle] = useState("")
-  const [editContent, setEditContent] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { notes, loading, createNote, updateNote, deleteNote } = useNotes()
+  const [isCreating, setIsCreating] = useState(false)
+  const [isEditing, setIsEditing] = useState<number | null>(null)
+  const [title, setTitle] = useState("")
+  const [content, setContent] = useState("")
 
-  const handleAddNote = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newTitle.trim() || !newContent.trim()) return
+  // Gérer la création d'une nouvelle note
+  const handleCreateNote = async () => {
+    if (!title.trim() || !content.trim()) return
 
-    setIsSubmitting(true)
-    await addNote(newTitle, newContent)
-    setNewTitle("")
-    setNewContent("")
-    setIsAdding(false)
-    setIsSubmitting(false)
+    try {
+      await createNote({ title, content })
+      setTitle("")
+      setContent("")
+      setIsCreating(false)
+    } catch (error) {
+      console.error("Erreur lors de la création de la note:", error)
+    }
   }
 
+  // Gérer la mise à jour d'une note
   const handleUpdateNote = async (id: number) => {
-    if (!editTitle.trim() || !editContent.trim()) return
+    if (!title.trim() || !content.trim()) return
 
-    setIsSubmitting(true)
-    await updateNote(id, editTitle, editContent)
-    setEditingId(null)
-    setIsSubmitting(false)
+    try {
+      await updateNote(id, { title, content })
+      setTitle("")
+      setContent("")
+      setIsEditing(null)
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour de la note:", error)
+    }
   }
 
-  const startEditing = (id: number, title: string, content: string) => {
-    setEditingId(id)
-    setEditTitle(title)
-    setEditContent(content)
+  // Commencer l'édition d'une note
+  const startEditing = (id: number, noteTitle: string, noteContent: string) => {
+    setIsEditing(id)
+    setTitle(noteTitle)
+    setContent(noteContent)
+    setIsCreating(false)
   }
 
-  const cancelEditing = () => {
-    setEditingId(null)
+  // Commencer la création d'une nouvelle note
+  const startCreating = () => {
+    setIsCreating(true)
+    setIsEditing(null)
+    setTitle("")
+    setContent("")
   }
 
-  if (!user) {
+  // Annuler l'édition ou la création
+  const cancelEdit = () => {
+    setIsEditing(null)
+    setIsCreating(false)
+    setTitle("")
+    setContent("")
+  }
+
+  if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Mes Notes</CardTitle>
-          <CardDescription>Connectez-vous pour gérer vos notes</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="flex justify-center items-center h-40">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Mes Notes</h2>
-        {!isAdding && (
-          <Button onClick={() => setIsAdding(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Nouvelle note
-          </Button>
-        )}
-      </div>
+      {/* Bouton pour créer une nouvelle note */}
+      {!isCreating && !isEditing && (
+        <Button onClick={startCreating} className="mb-4">
+          <Plus className="mr-2 h-4 w-4" /> Nouvelle note
+        </Button>
+      )}
 
-      {isAdding && (
-        <Card>
-          <form onSubmit={handleAddNote}>
-            <CardHeader>
-              <CardTitle>Nouvelle note</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Input placeholder="Titre" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} required />
-              </div>
-              <div>
-                <Textarea
-                  placeholder="Contenu"
-                  value={newContent}
-                  onChange={(e) => setNewContent(e.target.value)}
-                  rows={4}
-                  required
-                />
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button variant="outline" onClick={() => setIsAdding(false)}>
-                Annuler
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enregistrement...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" /> Enregistrer
-                  </>
-                )}
-              </Button>
-            </CardFooter>
-          </form>
+      {/* Formulaire de création/édition */}
+      {(isCreating || isEditing !== null) && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>{isCreating ? "Créer une nouvelle note" : "Modifier la note"}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="title" className="text-sm font-medium">
+                Titre
+              </label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Titre de la note"
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="content" className="text-sm font-medium">
+                Contenu
+              </label>
+              <Textarea
+                id="content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Contenu de la note"
+                rows={5}
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button variant="outline" onClick={cancelEdit}>
+              Annuler
+            </Button>
+            <Button onClick={() => (isEditing !== null ? handleUpdateNote(isEditing) : handleCreateNote())}>
+              {isEditing !== null ? "Mettre à jour" : "Créer"}
+            </Button>
+          </CardFooter>
         </Card>
       )}
 
-      {isLoading ? (
-        <div className="flex justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      ) : notes.length === 0 ? (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground">Vous n'avez pas encore de notes</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {notes.map((note) => (
-            <Card key={note.id}>
-              {editingId === note.id ? (
-                <>
-                  <CardHeader>
-                    <Input
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      className="font-bold text-lg"
-                    />
-                  </CardHeader>
-                  <CardContent>
-                    <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={4} />
-                  </CardContent>
-                  <CardFooter className="flex justify-between">
-                    <Button variant="outline" onClick={cancelEditing}>
-                      <X className="h-4 w-4 mr-2" /> Annuler
-                    </Button>
-                    <Button onClick={() => handleUpdateNote(note.id)} disabled={isSubmitting}>
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enregistrement...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4 mr-2" /> Enregistrer
-                        </>
-                      )}
-                    </Button>
-                  </CardFooter>
-                </>
-              ) : (
-                <>
-                  <CardHeader>
-                    <CardTitle>{note.title}</CardTitle>
-                    <CardDescription>
-                      {formatDistanceToNow(new Date(note.created_at), { addSuffix: true, locale: fr })}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="whitespace-pre-wrap">{note.content}</p>
-                  </CardContent>
-                  <CardFooter className="flex justify-end space-x-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => startEditing(note.id, note.title, note.content)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => deleteNote(note.id)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
-                  </CardFooter>
-                </>
-              )}
-            </Card>
-          ))}
+      {/* Liste des notes */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {notes.map((note) => (
+          <Card key={note.id} className="overflow-hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xl">{note.title}</CardTitle>
+              <p className="text-xs text-muted-foreground">{new Date(note.created_at).toLocaleDateString()}</p>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm whitespace-pre-wrap">{note.content}</p>
+            </CardContent>
+            <CardFooter className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" size="icon" onClick={() => startEditing(note.id, note.title, note.content)}>
+                <Pencil className="h-4 w-4" />
+                <span className="sr-only">Modifier</span>
+              </Button>
+              <Button variant="outline" size="icon" className="text-destructive" onClick={() => deleteNote(note.id)}>
+                <Trash2 className="h-4 w-4" />
+                <span className="sr-only">Supprimer</span>
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+
+      {/* Message si aucune note */}
+      {notes.length === 0 && !isCreating && (
+        <div className="text-center p-8">
+          <p className="text-muted-foreground mb-4">Vous n'avez pas encore de notes</p>
+          <Button onClick={startCreating}>
+            <Plus className="mr-2 h-4 w-4" /> Créer votre première note
+          </Button>
         </div>
       )}
     </div>

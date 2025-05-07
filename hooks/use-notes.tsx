@@ -1,135 +1,128 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useNotesClient } from "@/lib/notes-service"
-import { useAuth } from "@/contexts/auth-context"
-import { useToast } from "@/hooks/use-toast"
-import type { Note } from "@/lib/notes-service"
+import { useState, useEffect, useCallback } from "react"
+import { notesService, type Note, type NewNote } from "@/lib/notes-service"
+import { useToast } from "@/components/ui/use-toast"
 
 export function useNotes() {
   const [notes, setNotes] = useState<Note[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const { user } = useAuth()
+  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
-  const notesClient = useNotesClient()
 
   // Charger les notes
-  const loadNotes = async () => {
-    if (!user) {
-      setNotes([])
-      setIsLoading(false)
-      return
-    }
-
-    setIsLoading(true)
+  const loadNotes = useCallback(async () => {
     try {
-      const data = await notesClient.getNotes()
+      setLoading(true)
+      const data = await notesService.getNotes()
       setNotes(data)
-    } catch (error: any) {
+    } catch (error) {
       console.error("Erreur lors du chargement des notes:", error)
       toast({
         title: "Erreur",
-        description: "Impossible de charger vos notes",
+        description: "Impossible de charger les notes",
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
-  }
+  }, [toast])
 
-  // Ajouter une note
-  const addNote = async (title: string, content: string) => {
-    if (!user) return null
-
-    try {
-      const note = await notesClient.createNote(title, content)
-      toast({
-        title: "Note ajoutée",
-        description: "Votre note a été ajoutée avec succès",
-      })
-      await loadNotes()
-      return note
-    } catch (error: any) {
-      console.error("Erreur lors de l'ajout de la note:", error)
-      toast({
-        title: "Erreur",
-        description: "Impossible d'ajouter votre note",
-        variant: "destructive",
-      })
-      return null
-    }
-  }
+  // Créer une note
+  const createNote = useCallback(
+    async (note: NewNote) => {
+      try {
+        const newNote = await notesService.createNote(note)
+        setNotes((prev) => [newNote, ...prev])
+        toast({
+          title: "Note créée",
+          description: "Votre note a été créée avec succès",
+        })
+        return newNote
+      } catch (error) {
+        console.error("Erreur lors de la création de la note:", error)
+        toast({
+          title: "Erreur",
+          description: "Impossible de créer la note",
+          variant: "destructive",
+        })
+        throw error
+      }
+    },
+    [toast],
+  )
 
   // Mettre à jour une note
-  const updateNote = async (id: number, title: string, content: string) => {
-    if (!user) return false
-
-    try {
-      await notesClient.updateNote(id, { title, content })
-      toast({
-        title: "Note mise à jour",
-        description: "Votre note a été mise à jour avec succès",
-      })
-      await loadNotes()
-      return true
-    } catch (error: any) {
-      console.error("Erreur lors de la mise à jour de la note:", error)
-      toast({
-        title: "Erreur",
-        description: "Impossible de mettre à jour votre note",
-        variant: "destructive",
-      })
-      return false
-    }
-  }
+  const updateNote = useCallback(
+    async (id: number, note: Partial<NewNote>) => {
+      try {
+        const updatedNote = await notesService.updateNote(id, note)
+        setNotes((prev) => prev.map((n) => (n.id === id ? updatedNote : n)))
+        toast({
+          title: "Note mise à jour",
+          description: "Votre note a été mise à jour avec succès",
+        })
+        return updatedNote
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour de la note:", error)
+        toast({
+          title: "Erreur",
+          description: "Impossible de mettre à jour la note",
+          variant: "destructive",
+        })
+        throw error
+      }
+    },
+    [toast],
+  )
 
   // Supprimer une note
-  const deleteNote = async (id: number) => {
-    if (!user) return false
+  const deleteNote = useCallback(
+    async (id: number) => {
+      try {
+        await notesService.deleteNote(id)
+        setNotes((prev) => prev.filter((n) => n.id !== id))
+        toast({
+          title: "Note supprimée",
+          description: "Votre note a été supprimée avec succès",
+        })
+      } catch (error) {
+        console.error("Erreur lors de la suppression de la note:", error)
+        toast({
+          title: "Erreur",
+          description: "Impossible de supprimer la note",
+          variant: "destructive",
+        })
+        throw error
+      }
+    },
+    [toast],
+  )
 
-    try {
-      await notesClient.deleteNote(id)
-      toast({
-        title: "Note supprimée",
-        description: "Votre note a été supprimée avec succès",
-      })
-      await loadNotes()
-      return true
-    } catch (error: any) {
-      console.error("Erreur lors de la suppression de la note:", error)
-      toast({
-        title: "Erreur",
-        description: "Impossible de supprimer votre note",
-        variant: "destructive",
-      })
-      return false
-    }
-  }
-
-  // S'abonner aux changements en temps réel
+  // Charger les notes au montage du composant
   useEffect(() => {
-    if (!user) return
+    loadNotes()
+  }, [loadNotes])
 
-    const unsubscribe = notesClient.subscribeToNotes((updatedNotes) => {
+  // S'abonner aux changements de notes
+  useEffect(() => {
+    // Cette fonction ne doit être exécutée que côté client
+    if (typeof window === "undefined") return
+
+    const unsubscribe = notesService.subscribeToNotes((updatedNotes) => {
       setNotes(updatedNotes)
     })
 
     return () => {
       unsubscribe()
     }
-  }, [user])
-
-  // Charger les notes au montage et quand l'utilisateur change
-  useEffect(() => {
-    loadNotes()
-  }, [user])
+  }, [])
 
   return {
     notes,
-    isLoading,
-    loadNotes,
-    addNote,
+    loading,
+    createNote,
     updateNote,
     deleteNote,
+    refreshNotes: loadNotes,
   }
 }

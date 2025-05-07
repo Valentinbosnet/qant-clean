@@ -3,123 +3,27 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useToast } from "@/hooks/use-toast"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 import { Loader2, Upload, X } from "lucide-react"
-import { getBrowserClient } from "@/lib/supabase-config"
-import { useAuth } from "@/contexts/auth-context"
+import { uploadAvatar } from "@/lib/profile-service"
+import { useToast } from "@/hooks/use-toast"
 
 interface AvatarUploadProps {
-  initialAvatarUrl: string | null
-  onAvatarChange: (url: string | null) => void
+  currentAvatarUrl?: string | null
+  onAvatarUpdated: (url: string) => void
+  userName?: string
 }
 
-export function AvatarUpload({ initialAvatarUrl, onAvatarChange }: AvatarUploadProps) {
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(initialAvatarUrl)
+export function AvatarUpload({ currentAvatarUrl, onAvatarUpdated, userName = "Utilisateur" }: AvatarUploadProps) {
   const [isUploading, setIsUploading] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const { toast } = useToast()
-  const { user } = useAuth()
-  const supabase = getBrowserClient()
 
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file || !user) return
-
-    // Vérifier le type de fichier
-    if (!file.type.startsWith("image/")) {
-      toast({
-        title: "Type de fichier non supporté",
-        description: "Veuillez sélectionner une image (JPG, PNG, etc.)",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Vérifier la taille du fichier (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast({
-        title: "Fichier trop volumineux",
-        description: "La taille maximale autorisée est de 2MB",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsUploading(true)
-
-    try {
-      // Générer un nom de fichier unique
-      const fileExt = file.name.split(".").pop()
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`
-      const filePath = `avatars/${fileName}`
-
-      // Télécharger le fichier
-      const { error: uploadError } = await supabase.storage.from("profiles").upload(filePath, file)
-
-      if (uploadError) throw uploadError
-
-      // Obtenir l'URL publique
-      const { data } = supabase.storage.from("profiles").getPublicUrl(filePath)
-      const newAvatarUrl = data.publicUrl
-
-      // Mettre à jour l'URL de l'avatar
-      setAvatarUrl(newAvatarUrl)
-      onAvatarChange(newAvatarUrl)
-
-      toast({
-        title: "Avatar mis à jour",
-        description: "Votre avatar a été mis à jour avec succès",
-      })
-    } catch (error: any) {
-      console.error("Erreur lors du téléchargement de l'avatar:", error)
-      toast({
-        title: "Erreur",
-        description: error.message || "Une erreur est survenue lors du téléchargement",
-        variant: "destructive",
-      })
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  const handleRemoveAvatar = async () => {
-    if (!avatarUrl || !user) return
-
-    try {
-      // Extraire le chemin du fichier de l'URL
-      const filePathMatch = avatarUrl.match(/\/profiles\/([^?]+)/)
-      if (filePathMatch && filePathMatch[1]) {
-        const filePath = filePathMatch[1]
-
-        // Supprimer le fichier
-        const { error } = await supabase.storage.from("profiles").remove([filePath])
-        if (error) throw error
-      }
-
-      // Mettre à jour l'URL de l'avatar
-      setAvatarUrl(null)
-      onAvatarChange(null)
-
-      toast({
-        title: "Avatar supprimé",
-        description: "Votre avatar a été supprimé avec succès",
-      })
-    } catch (error: any) {
-      console.error("Erreur lors de la suppression de l'avatar:", error)
-      toast({
-        title: "Erreur",
-        description: error.message || "Une erreur est survenue lors de la suppression",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // Obtenir les initiales pour l'avatar fallback
-  const getInitials = () => {
-    if (!user) return "U"
-    const fullName = user.user_metadata?.full_name || user.email || ""
-    return fullName
+  // Obtenir les initiales pour l'avatar de secours
+  const getInitials = (name: string) => {
+    return name
       .split(" ")
       .map((n) => n[0])
       .join("")
@@ -127,46 +31,120 @@ export function AvatarUpload({ initialAvatarUrl, onAvatarChange }: AvatarUploadP
       .substring(0, 2)
   }
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Vérifier le type de fichier
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Type de fichier non pris en charge",
+        description: "Veuillez sélectionner une image (JPG, PNG, GIF).",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Vérifier la taille du fichier (max 5 MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Fichier trop volumineux",
+        description: "La taille maximale autorisée est de 5 Mo.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Créer une URL de prévisualisation
+    const objectUrl = URL.createObjectURL(file)
+    setPreviewUrl(objectUrl)
+
+    // Télécharger l'avatar
+    setIsUploading(true)
+
+    try {
+      const result = await uploadAvatar(file)
+
+      if (result.success && result.url) {
+        onAvatarUpdated(result.url)
+        toast({
+          title: "Avatar mis à jour",
+          description: "Votre avatar a été mis à jour avec succès.",
+        })
+      } else {
+        toast({
+          title: "Erreur",
+          description: result.error || "Impossible de télécharger l'avatar.",
+          variant: "destructive",
+        })
+        // Réinitialiser la prévisualisation en cas d'erreur
+        setPreviewUrl(null)
+      }
+    } catch (error: any) {
+      console.error("Exception lors du téléchargement de l'avatar:", error)
+      toast({
+        title: "Erreur",
+        description: error.message || "Une erreur s'est produite lors du téléchargement.",
+        variant: "destructive",
+      })
+      // Réinitialiser la prévisualisation en cas d'erreur
+      setPreviewUrl(null)
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleCancelPreview = () => {
+    setPreviewUrl(null)
+  }
+
   return (
     <div className="flex flex-col items-center space-y-4">
-      <Avatar className="h-24 w-24">
-        <AvatarImage src={avatarUrl || ""} alt="Avatar" />
-        <AvatarFallback className="text-lg">{getInitials()}</AvatarFallback>
+      <Avatar className="w-24 h-24 border-2 border-primary/20">
+        <AvatarImage
+          src={previewUrl || currentAvatarUrl || ""}
+          alt={`Avatar de ${userName}`}
+          className="object-cover"
+        />
+        <AvatarFallback className="text-lg">{getInitials(userName)}</AvatarFallback>
       </Avatar>
 
-      <div className="flex space-x-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => document.getElementById("avatar-upload")?.click()}
-          disabled={isUploading}
+      <div className="flex flex-col items-center space-y-2">
+        <Label
+          htmlFor="avatar-upload"
+          className={`cursor-pointer px-4 py-2 rounded-md text-sm font-medium ${
+            isUploading ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground hover:bg-primary/90"
+          }`}
         >
           {isUploading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Téléchargement...
+              <Loader2 className="mr-2 h-4 w-4 inline animate-spin" />
+              Téléchargement...
             </>
           ) : (
             <>
-              <Upload className="mr-2 h-4 w-4" /> Changer l'avatar
+              <Upload className="mr-2 h-4 w-4 inline" />
+              Changer d'avatar
             </>
           )}
-        </Button>
-
-        {avatarUrl && (
-          <Button type="button" variant="outline" size="sm" onClick={handleRemoveAvatar} disabled={isUploading}>
-            <X className="mr-2 h-4 w-4" /> Supprimer
-          </Button>
-        )}
-
+        </Label>
         <input
           id="avatar-upload"
           type="file"
           accept="image/*"
-          onChange={handleUpload}
-          className="hidden"
+          onChange={handleFileChange}
           disabled={isUploading}
+          className="hidden"
         />
+
+        {previewUrl && (
+          <Button variant="outline" size="sm" onClick={handleCancelPreview} className="mt-2" disabled={isUploading}>
+            <X className="mr-2 h-4 w-4" />
+            Annuler
+          </Button>
+        )}
+
+        <p className="text-xs text-muted-foreground mt-1">JPG, PNG ou GIF. 5 Mo max.</p>
       </div>
     </div>
   )

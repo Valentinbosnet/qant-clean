@@ -1,3 +1,5 @@
+"use client"
+
 import { NotesManager } from "@/components/notes/notes-manager"
 
 export default function NotesPage() {

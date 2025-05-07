@@ -1,70 +1,71 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useTheme } from "next-themes"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Sun, Moon, Laptop } from "lucide-react"
+import type React from "react"
+
+import { useState } from "react"
+import { Check, Moon, Sun, Laptop } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface ThemeSelectorProps {
-  initialTheme: string | null
+  currentTheme: string
   onThemeChange: (theme: string) => void
 }
 
-export function ThemeSelector({ initialTheme, onThemeChange }: ThemeSelectorProps) {
-  const { setTheme } = useTheme()
-  const [selectedTheme, setSelectedTheme] = useState<string>(initialTheme || "system")
+interface ThemeOption {
+  value: string
+  label: string
+  icon: React.ReactNode
+}
 
-  // Mettre à jour le thème lorsque le composant est monté
-  useEffect(() => {
-    if (initialTheme) {
-      setTheme(initialTheme)
-    }
-  }, [initialTheme, setTheme])
+export function ThemeSelector({ currentTheme, onThemeChange }: ThemeSelectorProps) {
+  const [selectedTheme, setSelectedTheme] = useState(currentTheme || "system")
 
-  const handleThemeChange = (value: string) => {
-    setSelectedTheme(value)
-    setTheme(value)
-    onThemeChange(value)
+  const themeOptions: ThemeOption[] = [
+    {
+      value: "light",
+      label: "Clair",
+      icon: <Sun className="h-5 w-5" />,
+    },
+    {
+      value: "dark",
+      label: "Sombre",
+      icon: <Moon className="h-5 w-5" />,
+    },
+    {
+      value: "system",
+      label: "Système",
+      icon: <Laptop className="h-5 w-5" />,
+    },
+  ]
+
+  const handleThemeChange = (theme: string) => {
+    setSelectedTheme(theme)
+    onThemeChange(theme)
   }
 
   return (
-    <div className="space-y-4">
-      <Label>Thème de l'application</Label>
-      <RadioGroup value={selectedTheme} onValueChange={handleThemeChange} className="grid grid-cols-3 gap-4">
-        <div>
-          <RadioGroupItem value="light" id="theme-light" className="peer sr-only" />
-          <Label
-            htmlFor="theme-light"
-            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-          >
-            <Sun className="mb-3 h-6 w-6" />
-            Clair
-          </Label>
-        </div>
-
-        <div>
-          <RadioGroupItem value="dark" id="theme-dark" className="peer sr-only" />
-          <Label
-            htmlFor="theme-dark"
-            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-          >
-            <Moon className="mb-3 h-6 w-6" />
-            Sombre
-          </Label>
-        </div>
-
-        <div>
-          <RadioGroupItem value="system" id="theme-system" className="peer sr-only" />
-          <Label
-            htmlFor="theme-system"
-            className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-          >
-            <Laptop className="mb-3 h-6 w-6" />
-            Système
-          </Label>
-        </div>
-      </RadioGroup>
+    <div className="grid grid-cols-3 gap-4">
+      {themeOptions.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          className={cn(
+            "relative flex flex-col items-center justify-center rounded-md border-2 p-4 hover:bg-accent",
+            selectedTheme === option.value
+              ? "border-primary bg-accent"
+              : "border-muted bg-background hover:border-accent",
+          )}
+          onClick={() => handleThemeChange(option.value)}
+        >
+          {selectedTheme === option.value && (
+            <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <Check className="h-4 w-4" />
+            </span>
+          )}
+          <div className="mb-2">{option.icon}</div>
+          <span className="text-sm font-medium">{option.label}</span>
+        </button>
+      ))}
     </div>
   )
 }

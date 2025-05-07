@@ -2,322 +2,234 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
-import { useAuth } from "@/contexts/auth-context"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useToast } from "@/hooks/use-toast"
-import { Loader2, Save, User, Key, LogOut, Palette, LinkIcon } from "lucide-react"
-import Link from "next/link"
-import { EmailVerificationStatus } from "@/components/email-verification-status"
-import { getClientSupabase } from "@/lib/client-supabase"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { getBrowserClient } from "@/lib/client-supabase"
+import { updateUserProfile, type UserProfile } from "@/lib/profile-service"
 import { AvatarUpload } from "@/components/profile/avatar-upload"
 import { ThemeSelector } from "@/components/profile/theme-selector"
-import { useProfileClient } from "@/lib/profile-service"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Loader2, Save, User, Globe, Palette } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 export default function ProfilePage() {
-  const { user, signOut, isLoading, refreshSession } = useAuth()
+  const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [formData, setFormData] = useState({
+    full_name: "",
+    website: "",
+    theme: "system",
+  })
+
+  const router = useRouter()
   const { toast } = useToast()
-  const profileClient = useProfileClient()
 
-  const [isUpdating, setIsUpdating] = useState(false)
-  const [isClient, setIsClient] = useState(false)
-  const [profile, setProfile] = useState<any>(null)
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true)
-
-  // Formulaire profil
-  const [displayName, setDisplayName] = useState("")
-  const [website, setWebsite] = useState("")
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const [theme, setTheme] = useState<string>("system")
-
-  // Formulaire mot de passe
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-
-  // S'assurer que nous sommes côté client et charger le profil
   useEffect(() => {
-    setIsClient(true)
+    const fetchUserAndProfile = async () => {
+      setLoading(true)
 
-    if (user) {
-      loadProfile()
-    }
-  }, [user])
+      try {
+        const supabase = getBrowserClient()
 
-  // Charger le profil depuis Supabase
-  const loadProfile = async () => {
-    if (!user) return
+        if (!supabase) {
+          toast({
+            title: "Erreur",
+            description: "Impossible de se connecter à Supabase",
+            variant: "destructive",
+          })
+          router.push("/auth")
+          return
+        }
 
-    setIsLoadingProfile(true)
+        // Récupérer l'utilisateur actuel
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser()
 
-    try {
-      const profileData = await profileClient.getProfile()
-      setProfile(profileData)
+        if (!currentUser) {
+          router.push("/auth")
+          return
+        }
 
-      // Initialiser les champs du formulaire
-      setDisplayName(profileData?.full_name || "")
-      setWebsite(profileData?.website || "")
-      setAvatarUrl(profileData?.avatar_url || null)
-      setTheme(profileData?.theme || "system")
-    } catch (error: any) {
-      console.error("Erreur lors du chargement du profil:", error)
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger votre profil. Veuillez réessayer.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoadingProfile(false)
-    }
-  }
+        setUser(currentUser)
 
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault()
+        // Récupérer le profil
+        const { data: profileData, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", currentUser.id)
+          .single()
 
-    if (!user || !isClient) return
+        if (error) {
+          console.error("Erreur lors de la récupération du profil:", error)
+          toast({
+            title: "Erreur",
+            description: "Impossible de récupérer votre profil",
+            variant: "destructive",
+          })
+          return
+        }
 
-    setIsUpdating(true)
-
-    try {
-      // Mettre à jour le profil dans Supabase
-      await profileClient.updateProfile({
-        full_name: displayName,
-        website: website,
-        avatar_url: avatarUrl,
-        theme: theme,
-      })
-
-      // Mettre à jour les métadonnées utilisateur pour la compatibilité
-      const supabase = getClientSupabase()
-      if (!supabase) {
-        throw new Error("Client Supabase non disponible")
-      }
-
-      await supabase.auth.updateUser({
-        data: { full_name: displayName },
-      })
-
-      await refreshSession()
-
-      // Recharger le profil
-      await loadProfile()
-
-      toast({
-        title: "Profil mis à jour",
-        description: "Vos informations ont été mises à jour avec succès",
-      })
-    } catch (error: any) {
-      toast({
-        title: "Erreur",
-        description: error.message || "Une erreur est survenue",
-        variant: "destructive",
-      })
-    } finally {
-      setIsUpdating(false)
-    }
-  }
-
-  const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!user || !isClient) return
-
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: "Erreur",
-        description: "Les mots de passe ne correspondent pas",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (newPassword.length < 6) {
-      toast({
-        title: "Erreur",
-        description: "Le mot de passe doit contenir au moins 6 caractères",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsUpdating(true)
-
-    try {
-      const supabase = getClientSupabase()
-      if (!supabase) {
-        throw new Error("Client Supabase non disponible")
-      }
-
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-      })
-
-      if (error) {
+        setProfile(profileData as UserProfile)
+        setFormData({
+          full_name: profileData.full_name || "",
+          website: profileData.website || "",
+          theme: profileData.theme || "system",
+        })
+      } catch (error) {
+        console.error("Exception lors de la récupération du profil:", error)
         toast({
           title: "Erreur",
-          description: error.message,
+          description: "Une erreur s'est produite lors du chargement de votre profil",
           variant: "destructive",
         })
-        return
+      } finally {
+        setLoading(false)
       }
+    }
 
-      setCurrentPassword("")
-      setNewPassword("")
-      setConfirmPassword("")
+    fetchUserAndProfile()
+  }, [router, toast])
 
-      toast({
-        title: "Mot de passe mis à jour",
-        description: "Votre mot de passe a été modifié avec succès",
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleThemeChange = (theme: string) => {
+    setFormData((prev) => ({ ...prev, theme }))
+  }
+
+  const handleAvatarUpdated = (url: string) => {
+    setProfile((prev) => (prev ? { ...prev, avatar_url: url } : null))
+    toast({
+      title: "Avatar mis à jour",
+      description: "Votre avatar a été mis à jour avec succès",
+    })
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+
+    try {
+      const result = await updateUserProfile({
+        full_name: formData.full_name,
+        website: formData.website,
+        theme: formData.theme,
       })
+
+      if (result.success) {
+        toast({
+          title: "Profil mis à jour",
+          description: "Vos informations ont été mises à jour avec succès",
+        })
+
+        // Mettre à jour le profil local
+        setProfile((prev) => (prev ? { ...prev, ...formData } : null))
+      } else {
+        toast({
+          title: "Erreur",
+          description: result.error || "Impossible de mettre à jour votre profil",
+          variant: "destructive",
+        })
+      }
     } catch (error: any) {
+      console.error("Exception lors de la mise à jour du profil:", error)
       toast({
         title: "Erreur",
-        description: error.message || "Une erreur est survenue",
+        description: error.message || "Une erreur s'est produite",
         variant: "destructive",
       })
     } finally {
-      setIsUpdating(false)
+      setSaving(false)
     }
   }
 
-  // Afficher un état de chargement jusqu'à ce que le composant soit monté côté client
-  if (!isClient) {
+  if (loading) {
     return (
-      <div className="container py-12">
-        <h1 className="text-3xl font-bold mb-8">Profil</h1>
-        <div className="flex justify-center items-center py-16">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Chargement...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (isLoading || isLoadingProfile) {
-    return (
-      <div className="container py-12">
-        <h1 className="text-3xl font-bold mb-8">Profil</h1>
-        <div className="flex justify-center items-center py-16">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Chargement...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return (
-      <div className="container py-12">
-        <h1 className="text-3xl font-bold mb-8">Profil</h1>
-        <div className="bg-muted p-8 rounded-lg text-center">
-          <h2 className="text-xl font-semibold mb-4">Authentification requise</h2>
-          <p className="mb-6">Veuillez vous connecter pour accéder à votre profil.</p>
-          <Button asChild>
-            <Link href="/auth">Se connecter</Link>
-          </Button>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="container py-12">
-      <h1 className="text-3xl font-bold mb-8">Profil</h1>
-      <EmailVerificationStatus />
+    <div className="container max-w-4xl py-10">
+      <h1 className="text-3xl font-bold mb-6">Profil utilisateur</h1>
 
-      <div className="max-w-3xl mx-auto">
-        <Tabs defaultValue="info">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
-            <TabsTrigger value="info">
-              <User className="h-4 w-4 mr-2" />
-              Informations
-            </TabsTrigger>
-            <TabsTrigger value="appearance">
-              <Palette className="h-4 w-4 mr-2" />
-              Apparence
-            </TabsTrigger>
-            <TabsTrigger value="security">
-              <Key className="h-4 w-4 mr-2" />
-              Sécurité
-            </TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="personal" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="personal">
+            <User className="mr-2 h-4 w-4" />
+            Informations personnelles
+          </TabsTrigger>
+          <TabsTrigger value="appearance">
+            <Palette className="mr-2 h-4 w-4" />
+            Apparence
+          </TabsTrigger>
+          <TabsTrigger value="account">
+            <Globe className="mr-2 h-4 w-4" />
+            Compte
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="info">
+        <form onSubmit={handleSubmit}>
+          <TabsContent value="personal">
             <Card>
               <CardHeader>
                 <CardTitle>Informations personnelles</CardTitle>
-                <CardDescription>Mettez à jour vos informations personnelles</CardDescription>
+                <CardDescription>Mettez à jour vos informations personnelles et votre avatar.</CardDescription>
               </CardHeader>
-              <form onSubmit={handleUpdateProfile}>
-                <CardContent className="space-y-6">
-                  <AvatarUpload initialAvatarUrl={avatarUrl} onAvatarChange={(url) => setAvatarUrl(url)} />
+              <CardContent className="space-y-6">
+                <div className="flex flex-col md:flex-row gap-8 items-start">
+                  <AvatarUpload
+                    currentAvatarUrl={profile?.avatar_url}
+                    onAvatarUpdated={handleAvatarUpdated}
+                    userName={profile?.full_name || user?.email}
+                  />
 
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" value={user.email} disabled />
-                    <p className="text-xs text-muted-foreground mt-1">L'adresse email ne peut pas être modifiée</p>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="displayName">Nom complet</Label>
-                    <Input
-                      id="displayName"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="Votre nom complet"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="website">Site web</Label>
-                    <div className="flex">
-                      <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground">
-                        <LinkIcon className="h-4 w-4" />
-                      </span>
+                  <div className="space-y-4 flex-1">
+                    <div className="space-y-2">
+                      <Label htmlFor="full_name">Nom complet</Label>
                       <Input
-                        id="website"
-                        value={website}
-                        onChange={(e) => setWebsite(e.target.value)}
-                        placeholder="https://votresite.com"
-                        className="rounded-l-none"
+                        id="full_name"
+                        name="full_name"
+                        placeholder="Votre nom complet"
+                        value={formData.full_name}
+                        onChange={handleInputChange}
                       />
                     </div>
-                  </div>
 
-                  <div>
-                    <Label>ID du compte</Label>
-                    <p className="text-sm text-muted-foreground">{user.id}</p>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input id="email" type="email" value={user?.email || ""} disabled />
+                      <p className="text-sm text-muted-foreground">L'email ne peut pas être modifié.</p>
+                    </div>
                   </div>
-
-                  <div>
-                    <Label>Compte créé le</Label>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(user.created_at || Date.now()).toLocaleDateString()}
-                    </p>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button type="submit" disabled={isUpdating}>
-                    {isUpdating ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Mise à jour...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="mr-2 h-4 w-4" /> Enregistrer les modifications
-                      </>
-                    )}
-                  </Button>
-                </CardFooter>
-              </form>
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-end">
+                <Button type="submit" disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enregistrement...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Enregistrer
+                    </>
+                  )}
+                </Button>
+              </CardFooter>
             </Card>
           </TabsContent>
 
@@ -325,90 +237,80 @@ export default function ProfilePage() {
             <Card>
               <CardHeader>
                 <CardTitle>Apparence</CardTitle>
-                <CardDescription>Personnalisez l'apparence de l'application</CardDescription>
+                <CardDescription>Personnalisez l'apparence de l'application.</CardDescription>
               </CardHeader>
-              <form onSubmit={handleUpdateProfile}>
-                <CardContent className="space-y-6">
-                  <ThemeSelector initialTheme={theme} onThemeChange={(value) => setTheme(value)} />
-                </CardContent>
-                <CardFooter>
-                  <Button type="submit" disabled={isUpdating}>
-                    {isUpdating ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Mise à jour...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="mr-2 h-4 w-4" /> Enregistrer les modifications
-                      </>
-                    )}
-                  </Button>
-                </CardFooter>
-              </form>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="security">
-            <Card>
-              <CardHeader>
-                <CardTitle>Sécurité du compte</CardTitle>
-                <CardDescription>Mettez à jour votre mot de passe</CardDescription>
-              </CardHeader>
-              <form onSubmit={handleUpdatePassword}>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="newPassword">Nouveau mot de passe</Label>
-                    <Input
-                      id="newPassword"
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Nouveau mot de passe"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirmer le mot de passe"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">Le mot de passe doit contenir au moins 6 caractères</p>
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button type="submit" disabled={isUpdating}>
-                    {isUpdating ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Mise à jour...
-                      </>
-                    ) : (
-                      "Mettre à jour le mot de passe"
-                    )}
-                  </Button>
-                </CardFooter>
-              </form>
-            </Card>
-
-            <Card className="mt-8">
-              <CardHeader>
-                <CardTitle>Déconnexion</CardTitle>
-                <CardDescription>Déconnectez-vous de votre compte</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p>Vous serez déconnecté de tous les appareils.</p>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <Label>Thème</Label>
+                  <ThemeSelector currentTheme={formData.theme} onThemeChange={handleThemeChange} />
+                </div>
               </CardContent>
-              <CardFooter>
-                <Button variant="destructive" onClick={signOut}>
-                  <LogOut className="mr-2 h-4 w-4" /> Se déconnecter
+              <CardFooter className="flex justify-end">
+                <Button type="submit" disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enregistrement...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Enregistrer
+                    </>
+                  )}
                 </Button>
               </CardFooter>
             </Card>
           </TabsContent>
-        </Tabs>
-      </div>
+
+          <TabsContent value="account">
+            <Card>
+              <CardHeader>
+                <CardTitle>Compte</CardTitle>
+                <CardDescription>Gérez les paramètres de votre compte.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="website">Site web</Label>
+                    <Input
+                      id="website"
+                      name="website"
+                      placeholder="https://votre-site.com"
+                      value={formData.website}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="created_at">Date de création du compte</Label>
+                    <Input
+                      id="created_at"
+                      value={new Date(user?.created_at || profile?.created_at || Date.now()).toLocaleDateString()}
+                      disabled
+                    />
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="flex justify-end">
+                <Button type="submit" disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enregistrement...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Enregistrer
+                    </>
+                  )}
+                </Button>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+        </form>
+      </Tabs>
     </div>
   )
 }
