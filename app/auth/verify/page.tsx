@@ -2,23 +2,28 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useAuth } from "@/contexts/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Mail, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { getClientSupabase } from "@/lib/client-supabase"
 
 export default function VerifyEmailPage() {
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
-  const { resendVerificationEmail } = useAuth()
+  const [isClient, setIsClient] = useState(false)
   const { toast } = useToast()
+
+  // S'assurer que nous sommes côté client
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const handleResendVerificationEmail = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,7 +39,19 @@ export default function VerifyEmailPage() {
 
     setIsLoading(true)
     try {
-      const { error } = await resendVerificationEmail(email)
+      const supabase = getClientSupabase()
+      if (!supabase) {
+        throw new Error("Client Supabase non disponible")
+      }
+
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+
       if (error) {
         toast({
           title: "Échec de l'envoi",
@@ -57,6 +74,15 @@ export default function VerifyEmailPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Afficher un état de chargement jusqu'à ce que le composant soit monté côté client
+  if (!isClient) {
+    return (
+      <div className="container max-w-md mx-auto py-12 flex justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
   return (

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { getBrowserClient } from "@/lib/supabase"
+import { createClient } from "@supabase/supabase-js"
 import { Loader2, CheckCircle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -16,22 +16,37 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const handleCallback = async () => {
-      const supabase = getBrowserClient()
+      try {
+        // Créer un client Supabase directement ici au lieu d'utiliser getBrowserClient
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
 
-      // Récupérer le code de la requête
-      const code = searchParams.get("code")
-      const error = searchParams.get("error")
-      const errorDescription = searchParams.get("error_description")
+        if (!supabaseUrl || !supabaseAnonKey) {
+          throw new Error("Variables d'environnement Supabase manquantes")
+        }
 
-      if (error) {
-        setStatus("error")
-        setMessage("Erreur lors de l'authentification")
-        setErrorDetails(errorDescription || "Une erreur inconnue s'est produite")
-        return
-      }
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+            flowType: "pkce",
+          },
+        })
 
-      if (code) {
-        try {
+        // Récupérer le code de la requête
+        const code = searchParams.get("code")
+        const error = searchParams.get("error")
+        const errorDescription = searchParams.get("error_description")
+
+        if (error) {
+          setStatus("error")
+          setMessage("Erreur lors de l'authentification")
+          setErrorDetails(errorDescription || "Une erreur inconnue s'est produite")
+          return
+        }
+
+        if (code) {
           // Échanger le code contre une session
           const { error } = await supabase.auth.exchangeCodeForSession(code)
 
@@ -50,20 +65,23 @@ export default function AuthCallbackPage() {
           setTimeout(() => {
             router.push("/")
           }, 3000)
-        } catch (err: any) {
-          console.error("Erreur lors du traitement du callback:", err)
+        } else {
           setStatus("error")
-          setMessage("Une erreur est survenue lors de l'authentification")
-          setErrorDetails(err.message || "Détails non disponibles")
+          setMessage("Aucun code d'authentification trouvé dans l'URL")
+          setErrorDetails("Le lien de vérification est invalide ou a expiré")
         }
-      } else {
+      } catch (err: any) {
+        console.error("Erreur lors du traitement du callback:", err)
         setStatus("error")
-        setMessage("Aucun code d'authentification trouvé dans l'URL")
-        setErrorDetails("Le lien de vérification est invalide ou a expiré")
+        setMessage("Une erreur est survenue lors de l'authentification")
+        setErrorDetails(err.message || "Détails non disponibles")
       }
     }
 
-    handleCallback()
+    // S'assurer que ce code ne s'exécute que côté client
+    if (typeof window !== "undefined") {
+      handleCallback()
+    }
   }, [searchParams, router])
 
   return (

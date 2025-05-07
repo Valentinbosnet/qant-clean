@@ -2,9 +2,9 @@
 
 import type React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
-import { getBrowserClient } from "@/lib/supabase"
 import type { Session, User, AuthError } from "@supabase/supabase-js"
 import { useToast } from "@/hooks/use-toast"
+import { getClientSupabase } from "@/lib/client-supabase"
 
 type AuthContextType = {
   user: User | null
@@ -25,12 +25,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const supabase = getBrowserClient()
+  const [isClient, setIsClient] = useState(false)
   const { toast } = useToast()
+
+  // S'assurer que nous sommes côté client
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   // Fonction pour rafraîchir la session
   const refreshSession = async () => {
     try {
+      const supabase = getClientSupabase()
+      if (!supabase) return
+
       const {
         data: { session },
         error,
@@ -50,6 +58,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    if (!isClient) return
+
     const fetchSession = async () => {
       setIsLoading(true)
       try {
@@ -62,6 +72,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     fetchSession()
+
+    const supabase = getClientSupabase()
+    if (!supabase) return
 
     const {
       data: { subscription },
@@ -102,12 +115,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => {
-      subscription.unsubscribe()
+      subscription?.unsubscribe()
     }
-  }, [])
+  }, [isClient, toast])
 
   const signIn = async (email: string, password: string) => {
     try {
+      const supabase = getClientSupabase()
+      if (!supabase) {
+        return { error: { message: "Client Supabase non disponible" } as AuthError }
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -129,6 +147,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     try {
+      const supabase = getClientSupabase()
+      if (!supabase) {
+        return { data: null, error: { message: "Client Supabase non disponible" } as AuthError }
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -146,6 +169,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const resendVerificationEmail = async (email: string) => {
     try {
+      const supabase = getClientSupabase()
+      if (!supabase) {
+        return { error: { message: "Client Supabase non disponible" } as AuthError }
+      }
+
       const { error } = await supabase.auth.resend({
         type: "signup",
         email,
@@ -163,6 +191,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      const supabase = getClientSupabase()
+      if (!supabase) return
+
       await supabase.auth.signOut()
       setUser(null)
       setSession(null)
@@ -170,6 +201,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error("Erreur lors de la déconnexion:", error)
     }
+  }
+
+  // Valeurs par défaut pour le rendu côté serveur
+  const defaultContextValue: AuthContextType = {
+    user: null,
+    session: null,
+    isLoading: true,
+    signIn: async () => ({ error: null }),
+    signUp: async () => ({ data: null, error: null }),
+    signOut: async () => {},
+    refreshSession: async () => {},
+    isAuthenticated: false,
+    resendVerificationEmail: async () => ({ error: null }),
+  }
+
+  // Si nous ne sommes pas côté client, retourner les valeurs par défaut
+  if (!isClient) {
+    return <AuthContext.Provider value={defaultContextValue}>{children}</AuthContext.Provider>
   }
 
   return (

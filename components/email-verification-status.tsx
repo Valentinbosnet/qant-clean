@@ -4,16 +4,24 @@ import { useAuth } from "@/contexts/auth-context"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Loader2, Mail, AlertTriangle } from "lucide-react"
+import { getClientSupabase } from "@/lib/client-supabase"
 
 export function EmailVerificationStatus() {
-  const { user, resendVerificationEmail } = useAuth()
+  const { user } = useAuth()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
+  const [isClient, setIsClient] = useState(false)
 
-  // Si l'utilisateur n'est pas connecté ou si l'email est déjà vérifié, ne rien afficher
-  if (!user || user.email_confirmed_at) {
+  // S'assurer que nous sommes côté client
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  // Si nous ne sommes pas côté client, ou si l'utilisateur n'est pas connecté,
+  // ou si l'email est déjà vérifié, ne rien afficher
+  if (!isClient || !user || user.email_confirmed_at) {
     return null
   }
 
@@ -22,7 +30,19 @@ export function EmailVerificationStatus() {
 
     setIsLoading(true)
     try {
-      const { error } = await resendVerificationEmail(user.email)
+      const supabase = getClientSupabase()
+      if (!supabase) {
+        throw new Error("Client Supabase non disponible")
+      }
+
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: user.email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+
       if (error) {
         toast({
           title: "Échec de l'envoi",
