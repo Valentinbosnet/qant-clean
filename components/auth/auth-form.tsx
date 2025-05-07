@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Eye, EyeOff, Loader2, Mail } from "lucide-react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import Link from "next/link"
@@ -23,10 +23,11 @@ const passwordSchema = z
   .min(6, { message: "Le mot de passe doit contenir au moins 6 caractères" })
   .max(100, { message: "Le mot de passe est trop long" })
 
-export function AuthForm() {
-  const searchParams = useSearchParams()
-  const defaultTab = searchParams.get("tab") === "signup" ? "signup" : "signin"
+interface AuthFormProps {
+  defaultTab?: "signin" | "signup"
+}
 
+export function AuthForm({ defaultTab = "signin" }: AuthFormProps) {
   const [activeTab, setActiveTab] = useState(defaultTab)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
