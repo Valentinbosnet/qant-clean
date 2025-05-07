@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Stock Dashboard</title>
+  <!-- Ajout de Chart.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -122,6 +124,104 @@
       color: #666;
       font-size: 14px;
     }
+    
+    /* Styles pour les graphiques */
+    .chart-container {
+      margin-top: 15px;
+      height: 200px;
+      position: relative;
+    }
+    
+    .time-selector {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+      gap: 5px;
+    }
+    
+    .time-button {
+      background-color: #f0f0f0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .time-button:hover {
+      background-color: #e0e0e0;
+    }
+    
+    .time-button.active {
+      background-color: #3498db;
+      color: white;
+      border-color: #3498db;
+    }
+    
+    /* Styles pour le modal de détail */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+    
+    .modal-content {
+      background-color: white;
+      margin: 5% auto;
+      padding: 20px;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 800px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+    
+    .close-button {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    
+    .close-button:hover {
+      color: black;
+    }
+    
+    .detail-chart-container {
+      height: 400px;
+      margin: 20px 0;
+    }
+    
+    .detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .detail-price-info {
+      margin: 15px 0;
+    }
+    
+    .view-detail-button {
+      background-color: #f0f0f0;
+      border: none;
+      border-radius: 4px;
+      padding: 5px 10px;
+      margin-top: 10px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background-color 0.2s;
+    }
+    
+    .view-detail-button:hover {
+      background-color: #e0e0e0;
+    }
   </style>
 </head>
 <body>
@@ -134,6 +234,27 @@
     <div id="stock-grid" class="stock-grid" style="display: none;"></div>
     
     <button id="refresh-button" class="refresh-button" style="display: none;">Refresh Data</button>
+    
+    <!-- Modal pour afficher les détails d'une action -->
+    <div id="stock-detail-modal" class="modal">
+      <div class="modal-content">
+        <div class="detail-header">
+          <h2 id="detail-title">Stock Details</h2>
+          <span class="close-button" id="close-modal">&times;</span>
+        </div>
+        <div id="detail-price-info" class="detail-price-info"></div>
+        <div class="time-selector" id="detail-time-selector">
+          <button class="time-button active" data-period="7">1W</button>
+          <button class="time-button" data-period="30">1M</button>
+          <button class="time-button" data-period="90">3M</button>
+          <button class="time-button" data-period="180">6M</button>
+          <button class="time-button" data-period="365">1Y</button>
+        </div>
+        <div class="detail-chart-container">
+          <canvas id="detail-chart"></canvas>
+        </div>
+      </div>
+    </div>
     
     <footer>
       &copy; 2023 Stock Dashboard. All data is simulated for demonstration purposes.
@@ -154,16 +275,26 @@
       };
     }
     
-    function getStockHistory(symbol) {
+    function getStockHistory(symbol, days = 30) {
       // Simulate historical data
-      const days = 30;
       const history = [];
       let price = Math.random() * 1000 + 100;
+      const today = new Date();
       
-      for (let i = 0; i < days; i++) {
-        price = price + (Math.random() * 20 - 10);
+      // Generate more realistic price movements
+      for (let i = days; i >= 0; i--) {
+        // Add some volatility based on the symbol
+        const volatility = (symbol.charCodeAt(0) % 5 + 1) / 100;
+        // Random daily change with some momentum
+        const change = price * volatility * (Math.random() * 2 - 1);
+        
+        price = Math.max(price + change, 10); // Ensure price doesn't go too low
+        
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        
         history.push({
-          date: new Date(Date.now() - (days - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          date: date.toISOString().split('T')[0],
           price: parseFloat(price.toFixed(2))
         });
       }
@@ -194,8 +325,179 @@
         price: quote.price,
         change: quote.change,
         percentChange: quote.percentChange,
-        history: getStockHistory(symbol)
+        history: getStockHistory(symbol, 365) // Get a full year of history
       };
+    }
+    
+    // Chart functions
+    function createStockChart(canvasId, stockData, days = 30) {
+      const ctx = document.getElementById(canvasId).getContext('2d');
+      
+      // Get the last X days of history
+      const historyData = stockData.history.slice(-days);
+      
+      // Extract dates and prices
+      const labels = historyData.map(item => item.date);
+      const prices = historyData.map(item => item.price);
+      
+      // Determine chart color based on price trend
+      const startPrice = prices[0];
+      const endPrice = prices[prices.length - 1];
+      const isPositive = endPrice >= startPrice;
+      const chartColor = isPositive ? 'rgba(10, 123, 30, 0.8)' : 'rgba(200, 30, 30, 0.8)';
+      const chartBgColor = isPositive ? 'rgba(10, 123, 30, 0.1)' : 'rgba(200, 30, 30, 0.1)';
+      
+      // Create or update chart
+      if (window.stockCharts && window.stockCharts[canvasId]) {
+        const chart = window.stockCharts[canvasId];
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = prices;
+        chart.data.datasets[0].borderColor = chartColor;
+        chart.data.datasets[0].backgroundColor = chartBgColor;
+        chart.update();
+      } else {
+        // Initialize charts object if it doesn't exist
+        if (!window.stockCharts) {
+          window.stockCharts = {};
+        }
+        
+        // Create new chart
+        window.stockCharts[canvasId] = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: `${stockData.symbol} Price`,
+              data: prices,
+              borderColor: chartColor,
+              backgroundColor: chartBgColor,
+              borderWidth: 2,
+              tension: 0.3,
+              fill: true,
+              pointRadius: 0,
+              pointHoverRadius: 5,
+              pointHoverBackgroundColor: chartColor
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false
+              },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+                callbacks: {
+                  label: function(context) {
+                    return formatPrice(context.raw);
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                display: false
+              },
+              y: {
+                display: false,
+                beginAtZero: false
+              }
+            },
+            interaction: {
+              mode: 'nearest',
+              axis: 'x',
+              intersect: false
+            }
+          }
+        });
+      }
+    }
+    
+    function createDetailChart(stockData, days = 30) {
+      const ctx = document.getElementById('detail-chart').getContext('2d');
+      
+      // Get the last X days of history
+      const historyData = stockData.history.slice(-days);
+      
+      // Extract dates and prices
+      const labels = historyData.map(item => item.date);
+      const prices = historyData.map(item => item.price);
+      
+      // Determine chart color based on price trend
+      const startPrice = prices[0];
+      const endPrice = prices[prices.length - 1];
+      const isPositive = endPrice >= startPrice;
+      const chartColor = isPositive ? 'rgba(10, 123, 30, 0.8)' : 'rgba(200, 30, 30, 0.8)';
+      const chartBgColor = isPositive ? 'rgba(10, 123, 30, 0.1)' : 'rgba(200, 30, 30, 0.1)';
+      
+      // Create or update chart
+      if (window.detailChart) {
+        window.detailChart.data.labels = labels;
+        window.detailChart.data.datasets[0].data = prices;
+        window.detailChart.data.datasets[0].borderColor = chartColor;
+        window.detailChart.data.datasets[0].backgroundColor = chartBgColor;
+        window.detailChart.update();
+      } else {
+        // Create new chart
+        window.detailChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: `${stockData.symbol} Price`,
+              data: prices,
+              borderColor: chartColor,
+              backgroundColor: chartBgColor,
+              borderWidth: 2,
+              tension: 0.3,
+              fill: true,
+              pointRadius: 0,
+              pointHoverRadius: 5,
+              pointHoverBackgroundColor: chartColor
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: false
+              },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+                callbacks: {
+                  label: function(context) {
+                    return formatPrice(context.raw);
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                display: true,
+                grid: {
+                  display: false
+                }
+              },
+              y: {
+                display: true,
+                beginAtZero: false,
+                grid: {
+                  color: 'rgba(0, 0, 0, 0.05)'
+                }
+              }
+            },
+            interaction: {
+              mode: 'nearest',
+              axis: 'x',
+              intersect: false
+            }
+          }
+        });
+      }
     }
     
     // UI functions
@@ -236,12 +538,15 @@
         refreshButton.style.display = 'block';
         
         // Render stocks
-        stocks.forEach(stock => {
+        stocks.forEach((stock, index) => {
           const stockCard = document.createElement('div');
           stockCard.className = 'stock-card';
           
           const isPositive = stock.change >= 0;
           const changeClass = isPositive ? 'positive' : 'negative';
+          
+          // Create unique ID for the chart canvas
+          const chartId = `chart-${stock.symbol}`;
           
           stockCard.innerHTML = `
             <div class="stock-symbol">${stock.symbol}</div>
@@ -250,10 +555,51 @@
             <div class="stock-change ${changeClass}">
               ${formatChange(stock.change, stock.percentChange)}
             </div>
+            <div class="chart-container">
+              <canvas id="${chartId}"></canvas>
+            </div>
+            <div class="time-selector" id="time-selector-${stock.symbol}">
+              <button class="time-button active" data-period="7" data-symbol="${stock.symbol}">1W</button>
+              <button class="time-button" data-period="30" data-symbol="${stock.symbol}">1M</button>
+              <button class="time-button" data-period="90" data-symbol="${stock.symbol}">3M</button>
+            </div>
+            <button class="view-detail-button" data-symbol="${stock.symbol}">View Details</button>
           `;
           
           stockGridElement.appendChild(stockCard);
+          
+          // Create chart after the element is added to the DOM
+          setTimeout(() => {
+            createStockChart(chartId, stock, 30);
+          }, 0);
         });
+        
+        // Add event listeners for time period buttons
+        document.querySelectorAll('.time-button').forEach(button => {
+          button.addEventListener('click', function() {
+            const symbol = this.getAttribute('data-symbol');
+            const period = parseInt(this.getAttribute('data-period'));
+            const stockData = getStockData(symbol);
+            
+            // Update active button
+            document.querySelectorAll(`#time-selector-${symbol} .time-button`).forEach(btn => {
+              btn.classList.remove('active');
+            });
+            this.classList.add('active');
+            
+            // Update chart
+            createStockChart(`chart-${symbol}`, stockData, period);
+          });
+        });
+        
+        // Add event listeners for detail view buttons
+        document.querySelectorAll('.view-detail-button').forEach(button => {
+          button.addEventListener('click', function() {
+            const symbol = this.getAttribute('data-symbol');
+            openDetailModal(symbol);
+          });
+        });
+        
       } catch (error) {
         // Handle errors
         loadingElement.style.display = 'none';
@@ -263,12 +609,79 @@
       }
     }
     
+    // Modal functions
+    function openDetailModal(symbol) {
+      const modal = document.getElementById('stock-detail-modal');
+      const stockData = getStockData(symbol);
+      
+      // Update modal content
+      document.getElementById('detail-title').textContent = `${stockData.symbol} - ${stockData.name}`;
+      
+      const isPositive = stockData.change >= 0;
+      const changeClass = isPositive ? 'positive' : 'negative';
+      
+      document.getElementById('detail-price-info').innerHTML = `
+        <div class="stock-price">${formatPrice(stockData.price)}</div>
+        <div class="stock-change ${changeClass}">
+          ${formatChange(stockData.change, stockData.percentChange)}
+        </div>
+      `;
+      
+      // Create chart
+      createDetailChart(stockData, 30);
+      
+      // Reset active time period button
+      document.querySelectorAll('#detail-time-selector .time-button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelector('#detail-time-selector .time-button[data-period="30"]').classList.add('active');
+      
+      // Show modal
+      modal.style.display = 'block';
+      
+      // Store current symbol for time period buttons
+      modal.setAttribute('data-current-symbol', symbol);
+    }
+    
+    function closeDetailModal() {
+      document.getElementById('stock-detail-modal').style.display = 'none';
+    }
+    
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
       renderStocks();
       
       // Add refresh button handler
       document.getElementById('refresh-button').addEventListener('click', renderStocks);
+      
+      // Add modal close button handler
+      document.getElementById('close-modal').addEventListener('click', closeDetailModal);
+      
+      // Add click outside modal to close
+      window.addEventListener('click', function(event) {
+        const modal = document.getElementById('stock-detail-modal');
+        if (event.target === modal) {
+          closeDetailModal();
+        }
+      });
+      
+      // Add detail time period button handlers
+      document.querySelectorAll('#detail-time-selector .time-button').forEach(button => {
+        button.addEventListener('click', function() {
+          const period = parseInt(this.getAttribute('data-period'));
+          const symbol = document.getElementById('stock-detail-modal').getAttribute('data-current-symbol');
+          const stockData = getStockData(symbol);
+          
+          // Update active button
+          document.querySelectorAll('#detail-time-selector .time-button').forEach(btn => {
+            btn.classList.remove('active');
+          });
+          this.classList.add('active');
+          
+          // Update chart
+          createDetailChart(stockData, period);
+        });
+      });
     });
   </script>
 </body>
