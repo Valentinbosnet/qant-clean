@@ -5,15 +5,33 @@ import { Card, CardContent } from "@/components/ui/card"
 import type { StockData } from "@/lib/stock-service"
 import { StockChart } from "@/components/stock-chart"
 import { formatPrice, formatChange } from "@/lib/utils"
+import { Star, X } from "lucide-react"
+import { useFavorites } from "@/hooks/use-favorites"
+import { useAuth } from "@/contexts/auth-context"
+import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { MoreHorizontal } from "lucide-react"
 
 interface StockCardProps {
   stock: StockData
   onViewDetails: (symbol: string) => void
+  isRemovable?: boolean
+  onRemove?: (symbol: string) => void
 }
 
-export function StockCard({ stock, onViewDetails }: StockCardProps) {
+export function StockCard({ stock, onViewDetails, isRemovable = false, onRemove }: StockCardProps) {
   const [timeframe, setTimeframe] = useState<number>(30)
   const isPositive = stock.change >= 0
+  const { isFavorite, toggleFavorite } = useFavorites()
+  const { user } = useAuth()
+
+  const isFav = isFavorite(stock.symbol)
+
+  const handleRemove = () => {
+    if (onRemove) {
+      onRemove(stock.symbol)
+    }
+  }
 
   return (
     <Card className="overflow-hidden hover:shadow-md transition-all">
@@ -23,11 +41,37 @@ export function StockCard({ stock, onViewDetails }: StockCardProps) {
             <h3 className="text-xl font-bold">{stock.symbol}</h3>
             <p className="text-sm text-muted-foreground">{stock.name}</p>
           </div>
-          <div className="text-right">
-            <p className="text-lg font-semibold">{formatPrice(stock.price)}</p>
-            <p className={`text-sm ${isPositive ? "text-green-600" : "text-red-600"}`}>
-              {formatChange(stock.change, stock.percentChange)}
-            </p>
+          <div className="flex items-start gap-2">
+            <div className="text-right">
+              <p className="text-lg font-semibold">{formatPrice(stock.price)}</p>
+              <p className={`text-sm ${isPositive ? "text-green-600" : "text-red-600"}`}>
+                {formatChange(stock.change, stock.percentChange)}
+              </p>
+            </div>
+            <div className="flex">
+              {user && (
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleFavorite(stock.symbol)}>
+                  <Star className={`h-5 w-5 ${isFav ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} />
+                  <span className="sr-only">{isFav ? "Remove from favorites" : "Add to favorites"}</span>
+                </Button>
+              )}
+              {isRemovable && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-5 w-5" />
+                      <span className="sr-only">More options</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleRemove} className="text-red-600">
+                      <X className="h-4 w-4 mr-2" />
+                      Remove from dashboard
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
         </div>
 
