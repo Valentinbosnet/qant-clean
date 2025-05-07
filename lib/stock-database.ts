@@ -1,3 +1,5 @@
+import { searchStocks as apiSearchStocks } from "../actions/stock-api"
+
 // A more comprehensive list of stocks for search functionality
 export interface StockInfo {
   symbol: string
@@ -6,8 +8,8 @@ export interface StockInfo {
   industry?: string
 }
 
-// This would typically come from an API, but we'll use a static list for demonstration
-export const stockDatabase: StockInfo[] = [
+// Fallback stock database for when the API fails or for initial data
+export const fallbackStockDatabase: StockInfo[] = [
   { symbol: "AAPL", name: "Apple Inc.", sector: "Technology", industry: "Consumer Electronics" },
   { symbol: "MSFT", name: "Microsoft Corporation", sector: "Technology", industry: "Software" },
   { symbol: "GOOGL", name: "Alphabet Inc.", sector: "Technology", industry: "Internet Content & Information" },
@@ -70,16 +72,36 @@ export const stockDatabase: StockInfo[] = [
   { symbol: "MMM", name: "3M Company", sector: "Industrials", industry: "Conglomerates" },
 ]
 
-// Search function to find stocks by symbol or name
-export function searchStocks(query: string): StockInfo[] {
+// Search function to find stocks by symbol or name using the Alpha Vantage API via server action
+export async function searchStocks(query: string): Promise<StockInfo[]> {
   if (!query || query.trim() === "") {
     return []
   }
 
-  const normalizedQuery = query.toLowerCase().trim()
+  try {
+    const response = await apiSearchStocks(query)
 
-  return stockDatabase.filter(
-    (stock) =>
-      stock.symbol.toLowerCase().includes(normalizedQuery) || stock.name.toLowerCase().includes(normalizedQuery),
-  )
+    if (!response.bestMatches || response.bestMatches.length === 0) {
+      return []
+    }
+
+    // Transform API response to our StockInfo format
+    return response.bestMatches
+      .filter((match) => match["3. type"] === "Equity") // Only include stocks
+      .map((match) => ({
+        symbol: match["1. symbol"],
+        name: match["2. name"],
+        // API doesn't provide sector/industry, so we leave those undefined
+      }))
+  } catch (error) {
+    console.error("Error searching stocks:", error)
+
+    // Fall back to local search if API fails
+    const normalizedQuery = query.toLowerCase().trim()
+
+    return fallbackStockDatabase.filter(
+      (stock) =>
+        stock.symbol.toLowerCase().includes(normalizedQuery) || stock.name.toLowerCase().includes(normalizedQuery),
+    )
+  }
 }

@@ -5,12 +5,13 @@ import { Card, CardContent } from "@/components/ui/card"
 import type { StockData } from "@/lib/stock-service"
 import { StockChart } from "@/components/stock-chart"
 import { formatPrice, formatChange } from "@/lib/utils"
-import { Star, X } from "lucide-react"
+import { Star, X, Database } from "lucide-react"
 import { useFavorites } from "@/hooks/use-favorites"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface StockCardProps {
   stock: StockData
@@ -32,6 +33,9 @@ export function StockCard({ stock, onViewDetails, isRemovable = false, onRemove 
       onRemove(stock.symbol)
     }
   }
+
+  // Calculate how old the data is
+  const dataAge = stock.cachedAt ? Math.floor((Date.now() - stock.cachedAt) / 60000) : null // in minutes
 
   return (
     <Card className="overflow-hidden hover:shadow-md transition-all">
@@ -107,12 +111,28 @@ export function StockCard({ stock, onViewDetails, isRemovable = false, onRemove 
             </button>
           </div>
 
-          <button
-            onClick={() => onViewDetails(stock.symbol)}
-            className="text-xs px-3 py-1 bg-secondary hover:bg-secondary/80 rounded"
-          >
-            Details
-          </button>
+          <div className="flex items-center gap-2">
+            {dataAge !== null && dataAge > 5 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="text-muted-foreground">
+                      <Database className="h-3 w-3" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Cached data ({dataAge} min old)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            <button
+              onClick={() => onViewDetails(stock.symbol)}
+              className="text-xs px-3 py-1 bg-secondary hover:bg-secondary/80 rounded"
+            >
+              Details
+            </button>
+          </div>
         </div>
       </CardContent>
     </Card>

@@ -27,7 +27,7 @@ export function SearchDialog({ isOpen, onClose, onAddStock }: SearchDialogProps)
   const { user } = useAuth()
   const { toast } = useToast()
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!query.trim()) {
       setResults([])
       return
@@ -35,8 +35,7 @@ export function SearchDialog({ isOpen, onClose, onAddStock }: SearchDialogProps)
 
     setIsSearching(true)
     try {
-      // In a real app, this would be an API call
-      const searchResults = searchStocks(query)
+      const searchResults = await searchStocks(query)
       setResults(searchResults)
     } catch (error) {
       console.error("Search error:", error)
@@ -100,7 +99,11 @@ export function SearchDialog({ isOpen, onClose, onAddStock }: SearchDialogProps)
         </div>
 
         <div className="mt-4">
-          {results.length === 0 && query.trim() !== "" && !isSearching ? (
+          {isSearching ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
+            </div>
+          ) : results.length === 0 && query.trim() !== "" ? (
             <p className="text-center py-8 text-muted-foreground">No stocks found matching your search.</p>
           ) : (
             <div className="space-y-2 max-h-[400px] overflow-y-auto">

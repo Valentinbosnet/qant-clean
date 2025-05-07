@@ -22,7 +22,7 @@ export default function SearchPage() {
   const { user } = useAuth()
   const { toast } = useToast()
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!query.trim()) {
       setResults([])
       return
@@ -30,8 +30,7 @@ export default function SearchPage() {
 
     setIsSearching(true)
     try {
-      // In a real app, this would be an API call
-      const searchResults = searchStocks(query)
+      const searchResults = await searchStocks(query)
       setResults(searchResults)
     } catch (error) {
       console.error("Search error:", error)
