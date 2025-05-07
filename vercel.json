@@ -1,15 +1,29 @@
 {
   "version": 2,
-  "builds": [
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "cleanUrls": true,
+  "public": true,
+  "outputDirectory": ".next",
+  "headers": [
     {
-      "src": "index.html",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/styles/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
     }
   ]
 }
