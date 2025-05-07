@@ -3,8 +3,8 @@ import Head from "next/head"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Providers } from "./providers"
-import { UserMenu } from "@/components/user-menu"
 import Link from "next/link"
+import { AuthStatus } from "@/components/auth-status"
 
 export const metadata = {
   title: "Stock Dashboard",
@@ -37,12 +37,12 @@ export default function RootLayout({
                 </Link>
                 <nav className="flex items-center gap-6">
                   <Link href="/search" className="text-sm font-medium">
-                    Search
+                    Recherche
                   </Link>
                   <Link href="/favorites" className="text-sm font-medium">
-                    Favorites
+                    Favoris
                   </Link>
-                  <UserMenu />
+                  <AuthStatus />
                 </nav>
               </div>
             </header>
