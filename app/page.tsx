@@ -3,6 +3,7 @@ import { StockDetailModal } from "@/components/stock-detail-modal"
 import { ApiStatus } from "@/components/api-status"
 import { Badge } from "@/components/ui/badge"
 import { Database } from "lucide-react"
+import { DebugInfo } from "@/components/debug-info"
 
 export default function Home() {
   return (
@@ -24,6 +25,7 @@ export default function Home() {
       <ApiStatus />
       <StockGrid />
       <StockDetailModal />
+      <DebugInfo />
 
       <footer className="text-center mt-16 mb-8 text-sm text-gray-500">
         &copy; {new Date().getFullYear()} Stock Dashboard. All data is provided by Alpha Vantage.

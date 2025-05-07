@@ -119,3 +119,6 @@ a {
     @apply bg-background text-foreground;
   }
 }
+
+/* Import des corrections pour le déploiement */
+@import "./deployment-fixes.css";

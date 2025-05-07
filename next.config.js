@@ -11,6 +11,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Ajoutez cette ligne pour résoudre les problèmes de CSS
+  optimizeFonts: false,
 }
 
 module.exports = nextConfig
