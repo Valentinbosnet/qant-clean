@@ -13,23 +13,41 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
+import { useEffect, useState } from "react"
+import { Loader2 } from "lucide-react"
 
 export function UserMenu() {
   const { user, signOut, isLoading } = useAuth()
   const { toast } = useToast()
+  const [isClient, setIsClient] = useState(false)
+
+  // S'assurer que nous sommes côté client
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const handleSignOut = async () => {
     await signOut()
     toast({
-      title: "Signed out",
-      description: "You have been signed out successfully",
+      title: "Déconnecté",
+      description: "Vous avez été déconnecté avec succès",
     })
+  }
+
+  // Afficher un état de chargement jusqu'à ce que le composant soit monté côté client
+  if (!isClient) {
+    return (
+      <Button variant="ghost" size="sm" disabled>
+        <Loader2 className="h-4 w-4 animate-spin" />
+      </Button>
+    )
   }
 
   if (isLoading) {
     return (
       <Button variant="ghost" size="sm" disabled>
-        Loading...
+        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+        Chargement...
       </Button>
     )
   }
@@ -37,7 +55,7 @@ export function UserMenu() {
   if (!user) {
     return (
       <Button asChild variant="outline" size="sm">
-        <Link href="/auth">Sign In</Link>
+        <Link href="/auth">Se connecter</Link>
       </Button>
     )
   }
@@ -58,16 +76,16 @@ export function UserMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+        <DropdownMenuLabel>Mon compte</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/favorites">My Favorites</Link>
+          <Link href="/favorites">Mes favoris</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/profile">Profile</Link>
+          <Link href="/profile">Profil</Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut}>Sign out</DropdownMenuItem>
+        <DropdownMenuItem onClick={handleSignOut}>Se déconnecter</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

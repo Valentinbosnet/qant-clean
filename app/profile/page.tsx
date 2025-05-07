@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,28 +12,41 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Save, User, Key, LogOut } from "lucide-react"
 import Link from "next/link"
-import { getBrowserClient } from "@/lib/supabase"
-// Importez le composant EmailVerificationStatus
 import { EmailVerificationStatus } from "@/components/email-verification-status"
+import { getClientSupabase } from "@/lib/client-supabase"
 
 export default function ProfilePage() {
   const { user, signOut, isLoading, refreshSession } = useAuth()
   const [isUpdating, setIsUpdating] = useState(false)
-  const [displayName, setDisplayName] = useState(user?.user_metadata?.full_name || "")
+  const [displayName, setDisplayName] = useState("")
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [isClient, setIsClient] = useState(false)
   const { toast } = useToast()
-  const supabase = getBrowserClient()
+
+  // S'assurer que nous sommes côté client
+  useEffect(() => {
+    setIsClient(true)
+    // Initialiser le nom d'affichage une fois que l'utilisateur est chargé
+    if (user) {
+      setDisplayName(user.user_metadata?.full_name || "")
+    }
+  }, [user])
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!user) return
+    if (!user || !isClient) return
 
     setIsUpdating(true)
 
     try {
+      const supabase = getClientSupabase()
+      if (!supabase) {
+        throw new Error("Client Supabase non disponible")
+      }
+
       const { error } = await supabase.auth.updateUser({
         data: { full_name: displayName },
       })
@@ -67,7 +80,7 @@ export default function ProfilePage() {
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!user) return
+    if (!user || !isClient) return
 
     if (newPassword !== confirmPassword) {
       toast({
@@ -90,6 +103,11 @@ export default function ProfilePage() {
     setIsUpdating(true)
 
     try {
+      const supabase = getClientSupabase()
+      if (!supabase) {
+        throw new Error("Client Supabase non disponible")
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
       })
@@ -120,6 +138,21 @@ export default function ProfilePage() {
     } finally {
       setIsUpdating(false)
     }
+  }
+
+  // Afficher un état de chargement jusqu'à ce que le composant soit monté côté client
+  if (!isClient) {
+    return (
+      <div className="container py-12">
+        <h1 className="text-3xl font-bold mb-8">Profil</h1>
+        <div className="flex justify-center items-center py-16">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Chargement...</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (isLoading) {
@@ -153,7 +186,6 @@ export default function ProfilePage() {
 
   return (
     <div className="container py-12">
-      {/* Ajoutez-le juste après le titre de la page, avant les onglets */}
       <h1 className="text-3xl font-bold mb-8">Profil</h1>
       <EmailVerificationStatus />
 

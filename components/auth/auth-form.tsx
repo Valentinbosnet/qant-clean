@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,9 +35,15 @@ export function AuthForm() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
   const [registeredEmail, setRegisteredEmail] = useState("")
+  const [isClient, setIsClient] = useState(false)
   const { signIn, signUp, resendVerificationEmail } = useAuth()
   const { toast } = useToast()
   const router = useRouter()
+
+  // S'assurer que nous sommes côté client
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {}
@@ -68,7 +74,7 @@ export function AuthForm() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) return
+    if (!validateForm() || !isClient) return
 
     setIsLoading(true)
 
@@ -117,7 +123,7 @@ export function AuthForm() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) return
+    if (!validateForm() || !isClient) return
 
     setIsLoading(true)
 
@@ -157,7 +163,7 @@ export function AuthForm() {
   }
 
   const handleResendVerificationEmail = async () => {
-    if (!registeredEmail) return
+    if (!registeredEmail || !isClient) return
 
     setIsLoading(true)
     try {
@@ -183,6 +189,20 @@ export function AuthForm() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Afficher un état de chargement jusqu'à ce que le composant soit monté côté client
+  if (!isClient) {
+    return (
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader>
+          <CardTitle className="text-2xl text-center">Chargement...</CardTitle>
+        </CardHeader>
+        <CardContent className="flex justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </CardContent>
+      </Card>
+    )
   }
 
   // Si l'inscription est réussie, afficher un message de confirmation
