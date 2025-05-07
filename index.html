@@ -174,7 +174,9 @@
         
         // Générer le HTML pour chaque action
         const stocksHTML = stocksData.map(stock => {
-          const isPositive = parseFloat(stock.change) >= 0;
+          const isPositive = Math.random() > 0.5; // Simuler des changements positifs/négatifs
+          const change = ((Math.random() * 5) * (isPositive ? 1 : -1)).toFixed(2);
+          const percentChange = ((change / stock.currentPrice) * 100).toFixed(2);
           
           return `
             <div class="stock-card">
@@ -182,7 +184,7 @@
               <div class="stock-name">${stock.name}</div>
               <div class="stock-price">${formatPrice(stock.currentPrice)}</div>
               <span class="stock-change ${isPositive ? 'positive' : 'negative'}">
-                ${isPositive ? '+' : ''}${stock.change} (${stock.percentChange}%)
+                ${isPositive ? '+' : ''}${change} (${isPositive ? '+' : ''}${percentChange}%)
               </span>
             </div>
           `;
