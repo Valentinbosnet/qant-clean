@@ -10,29 +10,70 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Save, User, Key, LogOut } from "lucide-react"
+import { Loader2, Save, User, Key, LogOut, Palette, LinkIcon } from "lucide-react"
 import Link from "next/link"
 import { EmailVerificationStatus } from "@/components/email-verification-status"
 import { getClientSupabase } from "@/lib/client-supabase"
+import { AvatarUpload } from "@/components/profile/avatar-upload"
+import { ThemeSelector } from "@/components/profile/theme-selector"
+import { useProfileClient } from "@/lib/profile-service"
 
 export default function ProfilePage() {
   const { user, signOut, isLoading, refreshSession } = useAuth()
+  const { toast } = useToast()
+  const profileClient = useProfileClient()
+
   const [isUpdating, setIsUpdating] = useState(false)
+  const [isClient, setIsClient] = useState(false)
+  const [profile, setProfile] = useState<any>(null)
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true)
+
+  // Formulaire profil
   const [displayName, setDisplayName] = useState("")
+  const [website, setWebsite] = useState("")
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [theme, setTheme] = useState<string>("system")
+
+  // Formulaire mot de passe
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [isClient, setIsClient] = useState(false)
-  const { toast } = useToast()
 
-  // S'assurer que nous sommes côté client
+  // S'assurer que nous sommes côté client et charger le profil
   useEffect(() => {
     setIsClient(true)
-    // Initialiser le nom d'affichage une fois que l'utilisateur est chargé
+
     if (user) {
-      setDisplayName(user.user_metadata?.full_name || "")
+      loadProfile()
     }
   }, [user])
+
+  // Charger le profil depuis Supabase
+  const loadProfile = async () => {
+    if (!user) return
+
+    setIsLoadingProfile(true)
+
+    try {
+      const profileData = await profileClient.getProfile()
+      setProfile(profileData)
+
+      // Initialiser les champs du formulaire
+      setDisplayName(profileData?.full_name || "")
+      setWebsite(profileData?.website || "")
+      setAvatarUrl(profileData?.avatar_url || null)
+      setTheme(profileData?.theme || "system")
+    } catch (error: any) {
+      console.error("Erreur lors du chargement du profil:", error)
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger votre profil. Veuillez réessayer.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingProfile(false)
+    }
+  }
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,25 +83,28 @@ export default function ProfilePage() {
     setIsUpdating(true)
 
     try {
+      // Mettre à jour le profil dans Supabase
+      await profileClient.updateProfile({
+        full_name: displayName,
+        website: website,
+        avatar_url: avatarUrl,
+        theme: theme,
+      })
+
+      // Mettre à jour les métadonnées utilisateur pour la compatibilité
       const supabase = getClientSupabase()
       if (!supabase) {
         throw new Error("Client Supabase non disponible")
       }
 
-      const { error } = await supabase.auth.updateUser({
+      await supabase.auth.updateUser({
         data: { full_name: displayName },
       })
 
-      if (error) {
-        toast({
-          title: "Erreur",
-          description: error.message,
-          variant: "destructive",
-        })
-        return
-      }
-
       await refreshSession()
+
+      // Recharger le profil
+      await loadProfile()
 
       toast({
         title: "Profil mis à jour",
@@ -155,7 +199,7 @@ export default function ProfilePage() {
     )
   }
 
-  if (isLoading) {
+  if (isLoading || isLoadingProfile) {
     return (
       <div className="container py-12">
         <h1 className="text-3xl font-bold mb-8">Profil</h1>
@@ -191,10 +235,14 @@ export default function ProfilePage() {
 
       <div className="max-w-3xl mx-auto">
         <Tabs defaultValue="info">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="info">
               <User className="h-4 w-4 mr-2" />
               Informations
+            </TabsTrigger>
+            <TabsTrigger value="appearance">
+              <Palette className="h-4 w-4 mr-2" />
+              Apparence
             </TabsTrigger>
             <TabsTrigger value="security">
               <Key className="h-4 w-4 mr-2" />
@@ -209,12 +257,15 @@ export default function ProfilePage() {
                 <CardDescription>Mettez à jour vos informations personnelles</CardDescription>
               </CardHeader>
               <form onSubmit={handleUpdateProfile}>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-6">
+                  <AvatarUpload initialAvatarUrl={avatarUrl} onAvatarChange={(url) => setAvatarUrl(url)} />
+
                   <div>
                     <Label htmlFor="email">Email</Label>
                     <Input id="email" type="email" value={user.email} disabled />
                     <p className="text-xs text-muted-foreground mt-1">L'adresse email ne peut pas être modifiée</p>
                   </div>
+
                   <div>
                     <Label htmlFor="displayName">Nom complet</Label>
                     <Input
@@ -224,16 +275,61 @@ export default function ProfilePage() {
                       placeholder="Votre nom complet"
                     />
                   </div>
+
+                  <div>
+                    <Label htmlFor="website">Site web</Label>
+                    <div className="flex">
+                      <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-input bg-muted text-muted-foreground">
+                        <LinkIcon className="h-4 w-4" />
+                      </span>
+                      <Input
+                        id="website"
+                        value={website}
+                        onChange={(e) => setWebsite(e.target.value)}
+                        placeholder="https://votresite.com"
+                        className="rounded-l-none"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <Label>ID du compte</Label>
                     <p className="text-sm text-muted-foreground">{user.id}</p>
                   </div>
+
                   <div>
                     <Label>Compte créé le</Label>
                     <p className="text-sm text-muted-foreground">
                       {new Date(user.created_at || Date.now()).toLocaleDateString()}
                     </p>
                   </div>
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" disabled={isUpdating}>
+                    {isUpdating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Mise à jour...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" /> Enregistrer les modifications
+                      </>
+                    )}
+                  </Button>
+                </CardFooter>
+              </form>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="appearance">
+            <Card>
+              <CardHeader>
+                <CardTitle>Apparence</CardTitle>
+                <CardDescription>Personnalisez l'apparence de l'application</CardDescription>
+              </CardHeader>
+              <form onSubmit={handleUpdateProfile}>
+                <CardContent className="space-y-6">
+                  <ThemeSelector initialTheme={theme} onThemeChange={(value) => setTheme(value)} />
                 </CardContent>
                 <CardFooter>
                   <Button type="submit" disabled={isUpdating}>
