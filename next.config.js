@@ -11,7 +11,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Ajoutez cette ligne pour résoudre les problèmes de CSS
+  // Désactiver l'optimisation des polices pour éviter les conflits
   optimizeFonts: false,
 }
 

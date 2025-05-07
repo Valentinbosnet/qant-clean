@@ -1,12 +1,10 @@
 import type React from "react"
-import { Inter } from "next/font/google"
+import Head from "next/head"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Providers } from "./providers"
 import { UserMenu } from "@/components/user-menu"
 import Link from "next/link"
-
-const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
   title: "Stock Dashboard",
@@ -21,7 +19,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <Head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </Head>
+      <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <Providers>
             <header className="border-b">
