@@ -2,28 +2,33 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { addToFavorites, removeFromFavorites, getUserFavorites } from "@/actions/favorites"
 import { useToast } from "@/hooks/use-toast"
+import { addFavoriteClient, removeFavoriteClient, getFavoritesClient } from "@/lib/client-favorites"
 
 export function useFavorites() {
   const [favorites, setFavorites] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const { toast } = useToast()
 
   // Load favorites when user changes
   useEffect(() => {
     async function loadFavorites() {
-      if (!user) {
+      if (!user || !isAuthenticated) {
+        console.log("No user or not authenticated, clearing favorites")
         setFavorites([])
         setIsLoading(false)
         return
       }
 
+      console.log("Loading favorites for user:", user.id)
       setIsLoading(true)
+
       try {
-        const result = await getUserFavorites()
+        const result = await getFavoritesClient()
+
         if (result.success) {
+          console.log("Favorites loaded successfully:", result.data)
           setFavorites(result.data)
         } else {
           console.error("Error loading favorites:", result.message)
@@ -33,18 +38,23 @@ export function useFavorites() {
             variant: "destructive",
           })
         }
-      } catch (error) {
-        console.error("Error loading favorites:", error)
+      } catch (error: any) {
+        console.error("Exception loading favorites:", error)
+        toast({
+          title: "Error",
+          description: error.message || "An error occurred",
+          variant: "destructive",
+        })
       } finally {
         setIsLoading(false)
       }
     }
 
     loadFavorites()
-  }, [user])
+  }, [user, isAuthenticated])
 
   const toggleFavorite = async (symbol: string) => {
-    if (!user) {
+    if (!user || !isAuthenticated) {
       toast({
         title: "Authentication required",
         description: "Please sign in to save favorites",
@@ -54,12 +64,13 @@ export function useFavorites() {
     }
 
     const isFavorite = favorites.includes(symbol)
+    console.log(`Toggling favorite for ${symbol}, current status:`, isFavorite ? "is favorite" : "not favorite")
 
     try {
       if (isFavorite) {
         // Optimistic update
         setFavorites(favorites.filter((s) => s !== symbol))
-        const result = await removeFromFavorites(symbol)
+        const result = await removeFavoriteClient(symbol)
 
         if (!result.success) {
           // Revert on failure
@@ -78,7 +89,7 @@ export function useFavorites() {
       } else {
         // Optimistic update
         setFavorites([...favorites, symbol])
-        const result = await addToFavorites(symbol)
+        const result = await addFavoriteClient(symbol)
 
         if (!result.success) {
           // Revert on failure

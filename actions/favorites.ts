@@ -1,24 +1,57 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase"
+import { cookies } from "next/headers"
+import { createServerClient } from "@supabase/ssr"
+import type { Database } from "@/types/database.types"
+
+// Fonction améliorée pour créer un client Supabase côté serveur avec les cookies
+async function getServerSupabaseClient() {
+  const cookieStore = cookies()
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Variables d'environnement Supabase manquantes")
+  }
+
+  return createServerClient<Database>(supabaseUrl, supabaseKey, {
+    cookies: {
+      get(name) {
+        return cookieStore.get(name)?.value
+      },
+      set(name, value, options) {
+        cookieStore.set({ name, value, ...options })
+      },
+      remove(name, options) {
+        cookieStore.set({ name, value: "", ...options })
+      },
+    },
+  })
+}
 
 // Add a stock to favorites
 export async function addToFavorites(symbol: string) {
-  const supabase = createServerClient()
-
-  // Get the current user
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) {
-    return { success: false, message: "Not authenticated" }
-  }
-
-  const userId = session.user.id
-
-  // Check if the favorites table exists and create it if not
   try {
-    // First check if the table exists by trying to query it
+    const supabase = await getServerSupabaseClient()
+
+    // Get the current user with detailed logging
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+    if (sessionError) {
+      console.error("Session error:", sessionError)
+      return { success: false, message: `Session error: ${sessionError.message}` }
+    }
+
+    if (!sessionData.session) {
+      console.error("No session found")
+      return { success: false, message: "Not authenticated" }
+    }
+
+    const userId = sessionData.session.user.id
+    console.log("User authenticated:", userId)
+
+    // Check if the favorites table exists and create it if not
     const { error: checkError } = await supabase.from("favorites").select("id").limit(1)
 
     // If we get a specific error about the relation not existing, create the table
@@ -35,60 +68,76 @@ export async function addToFavorites(symbol: string) {
         // Unique violation
         return { success: true, message: "Already in favorites" }
       }
+      console.error("Error adding favorite:", error)
       return { success: false, message: error.message }
     }
 
     return { success: true, message: "Added to favorites" }
   } catch (error: any) {
+    console.error("Exception in addToFavorites:", error)
     return { success: false, message: error.message }
   }
 }
 
 // Remove a stock from favorites
 export async function removeFromFavorites(symbol: string) {
-  const supabase = createServerClient()
-
-  // Get the current user
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) {
-    return { success: false, message: "Not authenticated" }
-  }
-
-  const userId = session.user.id
-
   try {
+    const supabase = await getServerSupabaseClient()
+
+    // Get the current user
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+    if (sessionError) {
+      console.error("Session error:", sessionError)
+      return { success: false, message: `Session error: ${sessionError.message}` }
+    }
+
+    if (!sessionData.session) {
+      console.error("No session found")
+      return { success: false, message: "Not authenticated" }
+    }
+
+    const userId = sessionData.session.user.id
+
     const { error } = await supabase.from("favorites").delete().match({ user_id: userId, stock_symbol: symbol })
 
     if (error) {
+      console.error("Error removing favorite:", error)
       return { success: false, message: error.message }
     }
 
     return { success: true, message: "Removed from favorites" }
   } catch (error: any) {
+    console.error("Exception in removeFromFavorites:", error)
     return { success: false, message: error.message }
   }
 }
 
 // Get all favorites for the current user
 export async function getUserFavorites() {
-  const supabase = createServerClient()
-
-  // Get the current user
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  if (!session) {
-    return { success: false, data: [], message: "Not authenticated" }
-  }
-
-  const userId = session.user.id
-
   try {
+    const supabase = await getServerSupabaseClient()
+
+    // Get the current user with detailed logging
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+    if (sessionError) {
+      console.error("Session error:", sessionError)
+      return { success: false, data: [], message: `Session error: ${sessionError.message}` }
+    }
+
+    if (!sessionData.session) {
+      console.error("No session found in getUserFavorites")
+      return { success: false, data: [], message: "Not authenticated" }
+    }
+
+    const userId = sessionData.session.user.id
+    console.log("User authenticated in getUserFavorites:", userId)
+
     const { data, error } = await supabase.from("favorites").select("stock_symbol").eq("user_id", userId)
 
     if (error) {
+      console.error("Error getting favorites:", error)
       return { success: false, data: [], message: error.message }
     }
 
@@ -98,6 +147,7 @@ export async function getUserFavorites() {
       message: "Favorites retrieved",
     }
   } catch (error: any) {
+    console.error("Exception in getUserFavorites:", error)
     return { success: false, data: [], message: error.message }
   }
 }
