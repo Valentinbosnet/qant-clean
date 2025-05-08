@@ -1,3 +1,5 @@
+"use client"
+
 import { RealtimePresence } from "@/components/realtime/realtime-presence"
 
 export default function RealtimePage() {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getBrowserClient } from "@/lib/supabase-config"
+import { getBrowserClient } from "@/lib/client-supabase"
 import { useAuth } from "@/contexts/auth-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -18,10 +18,12 @@ export function RealtimePresence() {
   const [presences, setPresences] = useState<Presence[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const { user } = useAuth()
-  const supabase = getBrowserClient()
 
   useEffect(() => {
-    if (!user) {
+    // Déplacer l'initialisation du client Supabase dans useEffect pour s'assurer qu'il est exécuté côté client
+    const supabase = getBrowserClient()
+
+    if (!user || !supabase) {
       setIsLoading(false)
       return
     }
