@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { getBrowserClient } from "@/lib/supabase-config"
+import { getBrowserClient } from "@/lib/client-supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"

@@ -1,3 +1,5 @@
+"use client"
+
 import { FileUpload } from "@/components/storage/file-upload"
 
 export default function StoragePage() {
