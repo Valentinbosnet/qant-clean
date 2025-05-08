@@ -8,14 +8,18 @@ import { addFavoriteClient, removeFavoriteClient, getFavoritesClient } from "@/l
 export function useFavorites() {
   const [favorites, setFavorites] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const { user, isAuthenticated } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
   const { toast } = useToast()
 
   // Load favorites when user changes
   useEffect(() => {
     async function loadFavorites() {
-      if (!user || !isAuthenticated) {
-        console.log("No user or not authenticated, clearing favorites")
+      if (authLoading) {
+        return // Wait for auth to complete
+      }
+
+      if (!user) {
+        console.log("No user, clearing favorites")
         setFavorites([])
         setIsLoading(false)
         return
@@ -37,6 +41,8 @@ export function useFavorites() {
             description: result.message,
             variant: "destructive",
           })
+          // Set empty array as fallback
+          setFavorites([])
         }
       } catch (error: any) {
         console.error("Exception loading favorites:", error)
@@ -45,16 +51,18 @@ export function useFavorites() {
           description: error.message || "An error occurred",
           variant: "destructive",
         })
+        // Set empty array as fallback
+        setFavorites([])
       } finally {
         setIsLoading(false)
       }
     }
 
     loadFavorites()
-  }, [user, isAuthenticated])
+  }, [user, authLoading, toast])
 
   const toggleFavorite = async (symbol: string) => {
-    if (!user || !isAuthenticated) {
+    if (!user) {
       toast({
         title: "Authentication required",
         description: "Please sign in to save favorites",

@@ -1,84 +1,59 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { getBrowserClient } from "@/lib/client-supabase"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { useState } from "react"
+import { getBrowserClient } from "@/lib/client-supabase"
 
 export function AuthDebugPanel() {
-  const { user, session, isAuthenticated, isLoading } = useAuth()
-  const [clientUser, setClientUser] = useState<any>(null)
-  const [clientSession, setClientSession] = useState<any>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { user, isLoading, isAuthenticated } = useAuth()
+  const [sessionDetails, setSessionDetails] = useState<any>(null)
+  const [showDetails, setShowDetails] = useState(false)
 
-  async function checkClientAuth() {
+  const checkSession = async () => {
     try {
       const supabase = getBrowserClient()
-      if (!supabase) {
-        setError("Supabase client not available")
-        return
-      }
-
-      // Get user
-      const { data: userData, error: userError } = await supabase.auth.getUser()
-      if (userError) {
-        setError(`User error: ${userError.message}`)
-        return
-      }
-
-      setClientUser(userData.user)
-
-      // Get session
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError) {
-        setError(`Session error: ${sessionError.message}`)
-        return
-      }
-
-      setClientSession(sessionData.session)
-      setError(null)
-    } catch (e: any) {
-      setError(`Exception: ${e.message}`)
+      const { data, error } = await supabase.auth.getSession()
+      setSessionDetails({ data, error })
+    } catch (error) {
+      setSessionDetails({ error })
     }
+    setShowDetails(true)
   }
 
-  useEffect(() => {
-    checkClientAuth()
-  }, [])
-
   return (
-    <Card className="w-full max-w-3xl mx-auto my-4">
+    <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Authentication Debug Panel</CardTitle>
+        <CardTitle>Authentication Debug</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+      <CardContent>
+        <div className="space-y-2">
           <div>
-            <h3 className="font-bold">Auth Context</h3>
-            <div className="text-sm">
-              <p>Loading: {isLoading ? "Yes" : "No"}</p>
-              <p>Authenticated: {isAuthenticated ? "Yes" : "No"}</p>
-              <p>User ID: {user?.id || "None"}</p>
-              <p>Email: {user?.email || "None"}</p>
-              <p>Session: {session ? "Valid" : "None"}</p>
-            </div>
+            <strong>Loading:</strong> {isLoading ? "Yes" : "No"}
+          </div>
+          <div>
+            <strong>Authenticated:</strong> {isAuthenticated ? "Yes" : "No"}
+          </div>
+          <div>
+            <strong>User ID:</strong> {user?.id || "Not logged in"}
+          </div>
+          <div>
+            <strong>Email:</strong> {user?.email || "N/A"}
+          </div>
+          <div className="mt-4">
+            <Button onClick={checkSession} variant="outline" size="sm">
+              Check Session
+            </Button>
           </div>
 
-          <div>
-            <h3 className="font-bold">Direct Client Check</h3>
-            <div className="text-sm">
-              <p>User ID: {clientUser?.id || "None"}</p>
-              <p>Email: {clientUser?.email || "None"}</p>
-              <p>Session: {clientSession ? "Valid" : "None"}</p>
-              {error && <p className="text-red-500">Error: {error}</p>}
+          {showDetails && (
+            <div className="mt-4 p-4 bg-muted rounded-md">
+              <h4 className="font-medium mb-2">Session Details:</h4>
+              <pre className="text-xs overflow-auto max-h-40">{JSON.stringify(sessionDetails, null, 2)}</pre>
             </div>
-          </div>
+          )}
         </div>
-
-        <Button onClick={checkClientAuth} variant="outline" size="sm">
-          Refresh Auth Status
-        </Button>
       </CardContent>
     </Card>
   )

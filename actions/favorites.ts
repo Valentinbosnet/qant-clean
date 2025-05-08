@@ -44,12 +44,12 @@ export async function addToFavorites(symbol: string) {
     }
 
     if (!sessionData.session) {
-      console.error("No session found")
+      console.error("No session found in addToFavorites")
       return { success: false, message: "Not authenticated" }
     }
 
     const userId = sessionData.session.user.id
-    console.log("User authenticated:", userId)
+    console.log("User authenticated in addToFavorites:", userId)
 
     // Check if the favorites table exists and create it if not
     const { error: checkError } = await supabase.from("favorites").select("id").limit(1)
@@ -93,7 +93,7 @@ export async function removeFromFavorites(symbol: string) {
     }
 
     if (!sessionData.session) {
-      console.error("No session found")
+      console.error("No session found in removeFromFavorites")
       return { success: false, message: "Not authenticated" }
     }
 
@@ -128,6 +128,17 @@ export async function getUserFavorites() {
 
     if (!sessionData.session) {
       console.error("No session found in getUserFavorites")
+
+      // Vérifier si nous sommes en mode développement
+      if (process.env.NODE_ENV === "development") {
+        console.log("Returning mock data in development mode")
+        return {
+          success: true,
+          data: [],
+          message: "Development mode - no session required",
+        }
+      }
+
       return { success: false, data: [], message: "Not authenticated" }
     }
 

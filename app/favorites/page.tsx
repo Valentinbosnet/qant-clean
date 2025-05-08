@@ -19,9 +19,15 @@ export default function FavoritesPage() {
   useEffect(() => {
     if (!favoritesLoading && favorites.length > 0) {
       setLoading(true)
-      const stockData = getMultipleStocks(favorites)
-      setStocks(stockData)
-      setLoading(false)
+      try {
+        const stockData = getMultipleStocks(favorites)
+        setStocks(Array.isArray(stockData) ? stockData : [])
+      } catch (error) {
+        console.error("Error fetching stocks:", error)
+        setStocks([])
+      } finally {
+        setLoading(false)
+      }
     } else if (!favoritesLoading) {
       setLoading(false)
     }
@@ -78,6 +84,14 @@ export default function FavoritesPage() {
         <div className="bg-muted p-8 rounded-lg text-center">
           <h2 className="text-xl font-semibold mb-4">No Favorites Yet</h2>
           <p className="mb-6">You haven't added any stocks to your favorites yet.</p>
+          <Button asChild>
+            <Link href="/">Browse Stocks</Link>
+          </Button>
+        </div>
+      ) : !stocks || stocks.length === 0 ? (
+        <div className="bg-muted p-8 rounded-lg text-center">
+          <h2 className="text-xl font-semibold mb-4">Error Loading Stocks</h2>
+          <p className="mb-6">There was a problem loading your favorite stocks. Please try again later.</p>
           <Button asChild>
             <Link href="/">Browse Stocks</Link>
           </Button>

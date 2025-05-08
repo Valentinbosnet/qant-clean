@@ -1,33 +1,26 @@
 "use client"
 
-import { getBrowserClient } from "./client-supabase"
+import { getBrowserClient } from "@/lib/client-supabase"
 
-// Add a stock to favorites (client-side)
+// Add a stock to favorites using client-side Supabase
 export async function addFavoriteClient(symbol: string) {
   try {
     const supabase = getBrowserClient()
-    if (!supabase) {
-      console.error("Supabase client not available")
-      return { success: false, message: "Supabase client not available" }
-    }
 
     // Get the current user
-    const { data: userData, error: userError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (userError) {
+    if (userError || !user) {
       console.error("User error:", userError)
-      return { success: false, message: userError.message }
+      return { success: false, message: userError?.message || "Not authenticated" }
     }
 
-    if (!userData.user) {
-      console.error("No user found")
-      return { success: false, message: "Not authenticated" }
-    }
+    const userId = user.id
 
-    const userId = userData.user.id
-    console.log("User authenticated in client:", userId)
-
-    // Insert the favorite
+    // Now try to insert the favorite
     const { error } = await supabase.from("favorites").insert([{ user_id: userId, stock_symbol: symbol }])
 
     if (error) {
@@ -46,29 +39,23 @@ export async function addFavoriteClient(symbol: string) {
   }
 }
 
-// Remove a stock from favorites (client-side)
+// Remove a stock from favorites using client-side Supabase
 export async function removeFavoriteClient(symbol: string) {
   try {
     const supabase = getBrowserClient()
-    if (!supabase) {
-      console.error("Supabase client not available")
-      return { success: false, message: "Supabase client not available" }
-    }
 
     // Get the current user
-    const { data: userData, error: userError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (userError) {
+    if (userError || !user) {
       console.error("User error:", userError)
-      return { success: false, message: userError.message }
+      return { success: false, message: userError?.message || "Not authenticated" }
     }
 
-    if (!userData.user) {
-      console.error("No user found")
-      return { success: false, message: "Not authenticated" }
-    }
-
-    const userId = userData.user.id
+    const userId = user.id
 
     const { error } = await supabase.from("favorites").delete().match({ user_id: userId, stock_symbol: symbol })
 
@@ -84,30 +71,23 @@ export async function removeFavoriteClient(symbol: string) {
   }
 }
 
-// Get all favorites for the current user (client-side)
+// Get all favorites for the current user using client-side Supabase
 export async function getFavoritesClient() {
   try {
     const supabase = getBrowserClient()
-    if (!supabase) {
-      console.error("Supabase client not available")
-      return { success: false, data: [], message: "Supabase client not available" }
-    }
 
     // Get the current user
-    const { data: userData, error: userError } = await supabase.auth.getUser()
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-    if (userError) {
+    if (userError || !user) {
       console.error("User error:", userError)
-      return { success: false, data: [], message: userError.message }
+      return { success: false, data: [], message: userError?.message || "Not authenticated" }
     }
 
-    if (!userData.user) {
-      console.error("No user found")
-      return { success: false, data: [], message: "Not authenticated" }
-    }
-
-    const userId = userData.user.id
-    console.log("User authenticated in getFavoritesClient:", userId)
+    const userId = user.id
 
     const { data, error } = await supabase.from("favorites").select("stock_symbol").eq("user_id", userId)
 
