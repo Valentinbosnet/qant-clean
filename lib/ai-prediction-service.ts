@@ -110,7 +110,7 @@ Réponds uniquement avec un objet JSON valide au format suivant, sans texte supp
         prompt,
         temperature: 0.2, // Réduire la température pour des résultats plus cohérents
         maxTokens: 2000,
-        apiKey: apiKey, // Utiliser la clé API du serveur
+        apiKey, // Utiliser la clé API du serveur
       })
 
       console.log("OpenAI API response received, length:", text.length)
