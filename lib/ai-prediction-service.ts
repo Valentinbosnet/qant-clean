@@ -3,6 +3,7 @@ import { openai } from "@ai-sdk/openai"
 import type { StockHistoryPoint } from "./stock-service"
 import type { PredictionPoint, PredictionResult } from "./prediction-service"
 import { generatePrediction } from "./prediction-service"
+import { serverEnv } from "./env-config"
 
 /**
  * Interface pour la réponse de l'IA
@@ -68,7 +69,11 @@ export async function generateAIPrediction(
 ): Promise<PredictionResult> {
   try {
     // Vérifier que la clé API OpenAI est disponible
-    const apiKey = process.env.OPENAI_API_KEY
+    // Utiliser directement la clé API de l'environnement serveur
+    const apiKey = serverEnv.OPENAI_API_KEY
+
+    // Log pour le débogage (ne pas inclure la clé complète en production)
+    console.log("OpenAI API key status:", apiKey ? "Available (length: " + apiKey.length + ")" : "Missing")
 
     if (!apiKey) {
       console.warn("OpenAI API key is missing. Falling back to ensemble prediction algorithm.")
