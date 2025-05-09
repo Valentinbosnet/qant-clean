@@ -6,6 +6,12 @@ import {
   getBatchQuotes,
 } from "../actions/stock-api"
 import { getFromCache, saveToCache } from "./cache-utils"
+import {
+  generateMockStockData,
+  generateMockHistory,
+  getMockMultipleStocks,
+  getMockStockData,
+} from "./mock-stock-service"
 
 // Define the types for our stock data
 export interface StockQuote {
@@ -59,46 +65,15 @@ const COMPANY_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000 // 7 days for company inf
 
 // Generate fallback stock data
 function generateFallbackStockData(symbol: string): StockQuote {
-  // Use the symbol's character code to generate consistent random values
-  const seed = symbol.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
-  const rand = (min: number, max: number) => {
-    const x = Math.sin(seed) * 10000
-    const r = x - Math.floor(x)
-    return min + r * (max - min)
-  }
-
   return {
     symbol,
-    price: rand(50, 1000),
-    change: rand(-10, 10),
-    percentChange: rand(-2.5, 2.5),
+    ...generateMockStockData(symbol),
   }
 }
 
 // Generate fallback historical data
 function generateFallbackHistory(symbol: string, days = 365): StockHistoryPoint[] {
-  const history: StockHistoryPoint[] = []
-  const today = new Date()
-
-  // Use the symbol to generate a consistent starting price
-  let price = 100 + (symbol.charCodeAt(0) % 26) * 30
-
-  for (let i = days; i >= 0; i--) {
-    const volatility = ((symbol.charCodeAt(0) % 5) + 1) / 100
-    const change = price * volatility * (Math.random() * 2 - 1)
-
-    price = Math.max(price + change, 10)
-
-    const date = new Date(today)
-    date.setDate(today.getDate() - i)
-
-    history.push({
-      date: date.toISOString().split("T")[0],
-      price: Number.parseFloat(price.toFixed(2)),
-    })
-  }
-
-  return history
+  return generateMockHistory(symbol, days)
 }
 
 // Get real stock quote from Alpha Vantage via server action
@@ -330,6 +305,13 @@ export async function getIntraday(symbol: string, forceRefresh = false): Promise
 
 // Get data for multiple stocks using batch API via server action
 export async function getMultipleStocks(symbols: string[], forceRefresh = false): Promise<StockData[]> {
+  if (!symbols || !Array.isArray(symbols) || symbols.length === 0) {
+    console.warn("getMultipleStocks called with invalid symbols:", symbols)
+    return []
+  }
+
+  console.log("getMultipleStocks called with symbols:", symbols)
+
   // Check if we have all stocks in cache
   if (!forceRefresh) {
     const cachedStocks = getFromCache<StockData[]>(`multiple_stocks_${symbols.join("_")}`)
@@ -442,15 +424,7 @@ export async function getMultipleStocks(symbols: string[], forceRefresh = false)
         }
 
         // Return fallback data if API fails for this symbol
-        return {
-          symbol,
-          name: companyNames[symbol] || `Company ${symbol}`,
-          price: Math.random() * 1000 + 50,
-          change: Math.random() * 20 - 10,
-          percentChange: Math.random() * 5 - 2.5,
-          history: generateFallbackHistory(symbol),
-          cachedAt: Date.now(),
-        }
+        return getMockStockData(symbol)
       }
     })
 
@@ -469,14 +443,20 @@ export async function getMultipleStocks(symbols: string[], forceRefresh = false)
       return expiredCache
     }
 
-    // Fall back to individual requests if batch fails
-    const stockDataPromises = symbols.map((symbol) => getStockData(symbol, forceRefresh))
-    return Promise.all(stockDataPromises)
+    // Fall back to mock data if batch fails
+    return getMockMultipleStocks(symbols)
   }
 }
 
 // Get complete stock data
 export async function getStockData(symbol: string, forceRefresh = false): Promise<StockData> {
+  if (!symbol) {
+    console.warn("getStockData called with invalid symbol:", symbol)
+    return getMockStockData("AAPL") // Return a default mock stock
+  }
+
+  console.log("getStockData called with symbol:", symbol)
+
   // Check cache first if not forcing refresh
   if (!forceRefresh) {
     const cachedStock = getFromCache<StockData>(`stock_${symbol}`)
@@ -569,15 +549,7 @@ export async function getStockData(symbol: string, forceRefresh = false): Promis
     }
 
     // Return fallback data if API fails completely
-    return {
-      symbol,
-      name: companyNames[symbol] || `Company ${symbol}`,
-      price: Math.random() * 1000 + 50,
-      change: Math.random() * 20 - 10,
-      percentChange: Math.random() * 5 - 2.5,
-      history: generateFallbackHistory(symbol),
-      cachedAt: Date.now(),
-    }
+    return getMockStockData(symbol)
   }
 }
 

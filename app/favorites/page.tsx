@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { useFavorites } from "@/hooks/use-favorites"
-import { getMultipleStocks } from "@/lib/stock-service"
 import { StockCard } from "@/components/stock-card"
 import { useStockModal } from "@/hooks/use-stock-modal"
 import { Button } from "@/components/ui/button"
@@ -14,23 +13,48 @@ export default function FavoritesPage() {
   const { favorites, isLoading: favoritesLoading } = useFavorites()
   const [stocks, setStocks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const { openModal } = useStockModal()
 
   useEffect(() => {
-    if (!favoritesLoading && favorites.length > 0) {
-      setLoading(true)
-      try {
-        const stockData = getMultipleStocks(favorites)
-        setStocks(Array.isArray(stockData) ? stockData : [])
-      } catch (error) {
-        console.error("Error fetching stocks:", error)
-        setStocks([])
-      } finally {
+    async function fetchStocks() {
+      if (!favoritesLoading && favorites.length > 0) {
+        setLoading(true)
+        setError(null)
+
+        try {
+          console.log("Fetching stocks for favorites:", favorites)
+          // Utiliser une fonction asynchrone pour obtenir les données
+          const stockData = await Promise.all(
+            favorites.map((symbol) => {
+              // Utiliser getStockData pour chaque symbole individuellement
+              return import("@/lib/stock-service").then((module) => module.getStockData(symbol, false))
+            }),
+          )
+
+          console.log("Stock data fetched:", stockData)
+
+          if (Array.isArray(stockData) && stockData.length > 0) {
+            setStocks(stockData)
+          } else {
+            console.error("Invalid stock data format:", stockData)
+            setError("Failed to load stock data")
+            setStocks([])
+          }
+        } catch (err) {
+          console.error("Error fetching stocks:", err)
+          setError(err instanceof Error ? err.message : "Failed to load stock data")
+          setStocks([])
+        } finally {
+          setLoading(false)
+        }
+      } else if (!favoritesLoading) {
         setLoading(false)
+        setStocks([])
       }
-    } else if (!favoritesLoading) {
-      setLoading(false)
     }
+
+    fetchStocks()
   }, [favorites, favoritesLoading])
 
   const handleViewDetails = (symbol: string) => {
@@ -88,13 +112,16 @@ export default function FavoritesPage() {
             <Link href="/">Browse Stocks</Link>
           </Button>
         </div>
-      ) : !stocks || stocks.length === 0 ? (
+      ) : error || stocks.length === 0 ? (
         <div className="bg-muted p-8 rounded-lg text-center">
           <h2 className="text-xl font-semibold mb-4">Error Loading Stocks</h2>
-          <p className="mb-6">There was a problem loading your favorite stocks. Please try again later.</p>
-          <Button asChild>
-            <Link href="/">Browse Stocks</Link>
-          </Button>
+          <p className="mb-6">{error || "There was a problem loading your favorite stocks. Please try again later."}</p>
+          <div className="flex justify-center gap-4">
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+            <Button asChild variant="outline">
+              <Link href="/">Browse Stocks</Link>
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
