@@ -39,7 +39,6 @@ import type { StockData } from "@/lib/stock-service"
 import { generatePrediction, type PredictionAlgorithm } from "@/lib/prediction-service"
 import { generateEnhancedPrediction, type EnhancedPredictionResult } from "@/lib/enhanced-prediction-service"
 import { PredictionAnalysis } from "./prediction-analysis"
-import { clientEnv } from "@/lib/env-config"
 
 interface EnhancedStockPredictionProps {
   stock: StockData
@@ -73,7 +72,7 @@ export function EnhancedStockPrediction({
   useEffect(() => {
     async function fetchApiStatus() {
       try {
-        const response = await fetch(`${clientEnv.NEXT_PUBLIC_API_BASE_URL}/api/status/api-keys`)
+        const response = await fetch(`/api/status/api-keys`)
         if (response.ok) {
           const data = await response.json()
           setApiStatus(data)
@@ -103,12 +102,78 @@ export function EnhancedStockPrediction({
         throw new Error("Données historiques insuffisantes pour générer une prédiction")
       }
 
-      // Si l'algorithme est "ai" et que la clé API n'est pas disponible, afficher un avertissement
-      if (algorithm === "ai" && !apiStatus.hasOpenAiKey) {
-        console.warn("OpenAI API key not available, prediction may fall back to ensemble algorithm")
+      // Si l'algorithme est "ai", utiliser la route API dédiée
+      if (algorithm === "ai") {
+        try {
+          // Appeler la route API qui fonctionne
+          const response = await fetch(`/api/predictions/ai`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              symbol: stock.symbol,
+              stockName: stock.name,
+              currentPrice: stock.price,
+              historicalData: stock.history,
+              days,
+            }),
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || "Erreur lors de la génération de prédictions IA")
+          }
+
+          const aiPrediction = await response.json()
+
+          // Améliorer la prédiction
+          const enhancedPrediction = await generateEnhancedPrediction(stock, aiPrediction, {
+            algorithm,
+            days,
+            confidenceLevel: 0.95,
+            includeTechnicalAnalysis: showTechnicalAnalysis,
+            includeMacroeconomicAnalysis: showMacroeconomicAnalysis,
+            includeSentimentAnalysis: showSentimentAnalysis,
+          })
+
+          setPredictionResult(enhancedPrediction)
+          return
+        } catch (aiError) {
+          console.error("Erreur lors de l'appel à l'API de prédiction IA:", aiError)
+
+          // Si l'API IA échoue, utiliser l'algorithme d'ensemble comme solution de secours
+          console.log("Falling back to ensemble algorithm")
+          setFallbackMode(true)
+          setAlgorithm("ensemble")
+
+          // Générer une prédiction avec l'algorithme d'ensemble
+          const fallbackPrediction = await generatePrediction(
+            stock.symbol,
+            stock.history,
+            {
+              algorithm: "ensemble",
+              days,
+            },
+            stock,
+          )
+
+          // Améliorer la prédiction
+          const enhancedPrediction = await generateEnhancedPrediction(stock, fallbackPrediction, {
+            algorithm: "ensemble",
+            days,
+            confidenceLevel: 0.95,
+            includeTechnicalAnalysis: showTechnicalAnalysis,
+            includeMacroeconomicAnalysis: showMacroeconomicAnalysis,
+            includeSentimentAnalysis: showSentimentAnalysis,
+          })
+
+          setPredictionResult(enhancedPrediction)
+          return
+        }
       }
 
-      // Générer la prédiction de base
+      // Pour les autres algorithmes, utiliser la méthode standard
       const basePrediction = await generatePrediction(
         stock.symbol,
         stock.history,
