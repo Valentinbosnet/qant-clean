@@ -17,6 +17,8 @@ import {
   Brain,
   Activity,
   Eye,
+  Globe,
+  MessageCircle,
 } from "lucide-react"
 import {
   Line,
@@ -34,6 +36,7 @@ import { formatPrice } from "@/lib/utils"
 import type { StockData } from "@/lib/stock-service"
 import { generatePrediction, type PredictionAlgorithm } from "@/lib/prediction-service"
 import { generateEnhancedPrediction, type EnhancedPredictionResult } from "@/lib/enhanced-prediction-service"
+import { PredictionAnalysis } from "./prediction-analysis"
 
 interface EnhancedStockPredictionProps {
   stock: StockData
@@ -41,6 +44,8 @@ interface EnhancedStockPredictionProps {
   defaultAlgorithm?: PredictionAlgorithm
   showConfidenceInterval?: boolean
   showTechnicalAnalysis?: boolean
+  showMacroeconomicAnalysis?: boolean
+  showSentimentAnalysis?: boolean
 }
 
 export function EnhancedStockPrediction({
@@ -49,12 +54,15 @@ export function EnhancedStockPrediction({
   defaultAlgorithm = "ensemble",
   showConfidenceInterval = true,
   showTechnicalAnalysis = true,
+  showMacroeconomicAnalysis = true,
+  showSentimentAnalysis = true,
 }: EnhancedStockPredictionProps) {
   const [predictionResult, setPredictionResult] = useState<EnhancedPredictionResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [algorithm, setAlgorithm] = useState<PredictionAlgorithm>(defaultAlgorithm)
   const [showConfidence, setShowConfidence] = useState(showConfidenceInterval)
+  const [showAnalysisPanel, setShowAnalysisPanel] = useState(false)
 
   // Générer une prédiction lorsque le stock ou l'algorithme change
   useEffect(() => {
@@ -89,6 +97,8 @@ export function EnhancedStockPrediction({
         days,
         confidenceLevel: 0.95,
         includeTechnicalAnalysis: showTechnicalAnalysis,
+        includeMacroeconomicAnalysis: showMacroeconomicAnalysis,
+        includeSentimentAnalysis: showSentimentAnalysis,
       })
 
       setPredictionResult(enhancedPrediction)
@@ -146,6 +156,11 @@ export function EnhancedStockPrediction({
   // Déterminer l'icône en fonction de la tendance
   const TrendIcon = predictionResult?.trend === "up" ? ArrowUp : predictionResult?.trend === "down" ? ArrowDown : Minus
 
+  // Vérifier si nous avons des données d'analyse avancée
+  const hasAdvancedAnalysis =
+    predictionResult &&
+    (predictionResult.technicalAnalysis || predictionResult.macroeconomicAnalysis || predictionResult.sentimentAnalysis)
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -167,7 +182,7 @@ export function EnhancedStockPrediction({
             </Badge>
           )}
         </CardTitle>
-        <CardDescription>Prévision sur {days} jours basée sur l'analyse des données historiques</CardDescription>
+        <CardDescription>Prévision sur {days} jours basée sur l'analyse multi-factorielle</CardDescription>
       </CardHeader>
 
       <CardContent>
@@ -195,6 +210,18 @@ export function EnhancedStockPrediction({
                 <Eye className="h-3 w-3 mr-1" />
                 Intervalle
               </Button>
+
+              {hasAdvancedAnalysis && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAnalysisPanel(!showAnalysisPanel)}
+                  className={showAnalysisPanel ? "bg-primary/10" : ""}
+                >
+                  <Activity className="h-3 w-3 mr-1" />
+                  Analyses
+                </Button>
+              )}
             </div>
           </div>
 
@@ -353,14 +380,17 @@ export function EnhancedStockPrediction({
                   </div>
                 )}
 
-                {/* Afficher l'analyse technique si disponible */}
-                {showTechnicalAnalysis && predictionResult?.technicalAnalysis && (
-                  <div className="mt-4 rounded-lg bg-muted p-3">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-medium flex items-center">
-                        <Activity className="h-4 w-4 mr-1" />
-                        Analyse technique
-                      </h4>
+                {/* Afficher le panneau d'analyse si demandé */}
+                {showAnalysisPanel && predictionResult && (
+                  <div className="mt-4">
+                    <PredictionAnalysis prediction={predictionResult} />
+                  </div>
+                )}
+
+                {/* Afficher le résumé des analyses si non affiché en détail */}
+                {!showAnalysisPanel && predictionResult && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {predictionResult.technicalAnalysis && (
                       <Badge
                         variant={
                           predictionResult.technicalAnalysis.trend === "up"
@@ -369,33 +399,57 @@ export function EnhancedStockPrediction({
                               ? "destructive"
                               : "outline"
                         }
-                        className="ml-2"
+                        className="flex items-center"
                       >
+                        <BarChart4 className="h-3 w-3 mr-1" />
+                        Technique:{" "}
                         {predictionResult.technicalAnalysis.trend === "up"
-                          ? "Haussier"
+                          ? "Positif"
                           : predictionResult.technicalAnalysis.trend === "down"
-                            ? "Baissier"
+                            ? "Négatif"
                             : "Neutre"}
                       </Badge>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                      {predictionResult.technicalAnalysis.signals.map((signal, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between text-xs p-2 bg-background rounded"
-                        >
-                          <span>{signal.name}</span>
-                          <Badge
-                            variant={
-                              signal.signal === "buy" ? "success" : signal.signal === "sell" ? "destructive" : "outline"
-                            }
-                            className="text-[10px] px-1"
-                          >
-                            {signal.signal === "buy" ? "Achat" : signal.signal === "sell" ? "Vente" : "Neutre"}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
+                    )}
+                    {predictionResult.macroeconomicAnalysis && (
+                      <Badge
+                        variant={
+                          predictionResult.macroeconomicAnalysis.impact === "positive"
+                            ? "success"
+                            : predictionResult.macroeconomicAnalysis.impact === "negative"
+                              ? "destructive"
+                              : "outline"
+                        }
+                        className="flex items-center"
+                      >
+                        <Globe className="h-3 w-3 mr-1" />
+                        Macro:{" "}
+                        {predictionResult.macroeconomicAnalysis.impact === "positive"
+                          ? "Positif"
+                          : predictionResult.macroeconomicAnalysis.impact === "negative"
+                            ? "Négatif"
+                            : "Neutre"}
+                      </Badge>
+                    )}
+                    {predictionResult.sentimentAnalysis && (
+                      <Badge
+                        variant={
+                          predictionResult.sentimentAnalysis.impact === "positive"
+                            ? "success"
+                            : predictionResult.sentimentAnalysis.impact === "negative"
+                              ? "destructive"
+                              : "outline"
+                        }
+                        className="flex items-center"
+                      >
+                        <MessageCircle className="h-3 w-3 mr-1" />
+                        Sentiment:{" "}
+                        {predictionResult.sentimentAnalysis.impact === "positive"
+                          ? "Positif"
+                          : predictionResult.sentimentAnalysis.impact === "negative"
+                            ? "Négatif"
+                            : "Neutre"}
+                      </Badge>
+                    )}
                   </div>
                 )}
 

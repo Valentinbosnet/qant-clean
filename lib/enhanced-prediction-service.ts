@@ -1,6 +1,8 @@
 import type { StockData } from "./stock-service"
 import type { PredictionResult, PredictionPoint, PredictionAlgorithm } from "./prediction-service"
 import { calculateIndicators, analyzeIndicators } from "./technical-indicators"
+import { getMacroeconomicData, evaluateMarcoImpact } from "./macroeconomic-service"
+import { getSentimentAnalysis, evaluateSentimentImpact } from "./sentiment-service"
 
 // Types pour les prédictions améliorées
 export interface EnhancedPredictionResult extends PredictionResult {
@@ -17,6 +19,16 @@ export interface EnhancedPredictionResult extends PredictionResult {
       strength: number
     }[]
   }
+  macroeconomicAnalysis?: {
+    impact: "positive" | "negative" | "neutral"
+    strength: number
+    details: string
+  }
+  sentimentAnalysis?: {
+    impact: "positive" | "negative" | "neutral"
+    strength: number
+    details: string
+  }
 }
 
 // Configuration pour les prédictions
@@ -26,6 +38,8 @@ export interface EnhancedPredictionConfig {
   historyDays?: number
   confidenceLevel?: number // 0.0 à 1.0, par défaut 0.95
   includeTechnicalAnalysis?: boolean
+  includeMacroeconomicAnalysis?: boolean
+  includeSentimentAnalysis?: boolean
 }
 
 // Valeurs par défaut
@@ -35,6 +49,8 @@ const DEFAULT_CONFIG: EnhancedPredictionConfig = {
   historyDays: 180,
   confidenceLevel: 0.95,
   includeTechnicalAnalysis: true,
+  includeMacroeconomicAnalysis: true,
+  includeSentimentAnalysis: true,
 }
 
 /**
@@ -81,6 +97,58 @@ export async function generateEnhancedPrediction(
         enhancedPrediction.technicalAnalysis.trend,
         enhancedPrediction.technicalAnalysis.strength,
       )
+    }
+  }
+
+  // Intégrer l'analyse macroéconomique si demandé
+  if (fullConfig.includeMacroeconomicAnalysis) {
+    try {
+      // Récupérer les données macroéconomiques
+      const macroData = await getMacroeconomicData("US")
+
+      // Évaluer l'impact sur le titre
+      const macroImpact = evaluateMarcoImpact(stockData.symbol, macroData)
+
+      // Ajouter l'analyse à la prédiction
+      enhancedPrediction.macroeconomicAnalysis = macroImpact
+
+      // Ajuster la prédiction en fonction de l'impact macroéconomique
+      if (macroImpact.strength > 0.3) {
+        adjustPredictionBasedOnExternalFactor(
+          enhancedPrediction,
+          macroImpact.impact,
+          macroImpact.strength * 0.7, // Réduire légèrement l'influence
+        )
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'analyse macroéconomique:", error)
+      // Continue sans analyse macroéconomique en cas d'erreur
+    }
+  }
+
+  // Intégrer l'analyse de sentiment si demandé
+  if (fullConfig.includeSentimentAnalysis) {
+    try {
+      // Récupérer l'analyse de sentiment
+      const sentimentData = await getSentimentAnalysis(stockData.symbol)
+
+      // Évaluer l'impact sur le titre
+      const sentimentImpact = evaluateSentimentImpact(sentimentData)
+
+      // Ajouter l'analyse à la prédiction
+      enhancedPrediction.sentimentAnalysis = sentimentImpact
+
+      // Ajuster la prédiction en fonction de l'impact du sentiment
+      if (sentimentImpact.strength > 0.3) {
+        adjustPredictionBasedOnExternalFactor(
+          enhancedPrediction,
+          sentimentImpact.impact,
+          sentimentImpact.strength * 0.8, // Sentiment a une influence importante
+        )
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'analyse de sentiment:", error)
+      // Continue sans analyse de sentiment en cas d'erreur
     }
   }
 
@@ -205,10 +273,72 @@ function adjustPredictionBasedOnTechnicalAnalysis(
   }
 
   // Recalculer la tendance et les objectifs
+  updatePredictionTrendAndTargets(prediction, firstEstimateIndex)
+}
+
+/**
+ * Ajuste une prédiction en fonction d'un facteur externe (macroéconomique ou sentiment)
+ */
+function adjustPredictionBasedOnExternalFactor(
+  prediction: EnhancedPredictionResult,
+  impact: "positive" | "negative" | "neutral",
+  strength: number,
+): void {
+  if (impact === "neutral" || !prediction.points || strength < 0.1) {
+    return
+  }
+
+  // Trouver l'index où les prédictions commencent
+  const firstEstimateIndex = prediction.points.findIndex((p) => p.isEstimate)
+  if (firstEstimateIndex === -1) {
+    return
+  }
+
+  // Calculer le facteur d'ajustement
+  const baseFactor = 1 + strength * 0.15 // Max ~7.5% d'ajustement pour un facteur de 0.5
+
+  // Ajuster les points de prédiction
+  for (let i = firstEstimateIndex; i < prediction.points.length; i++) {
+    // L'effet augmente progressivement avec la distance dans le futur
+    const distanceFactor = 1 + (i - firstEstimateIndex) / (prediction.points.length - firstEstimateIndex)
+    const adjustmentFactor = 1 + (baseFactor - 1) * distanceFactor
+
+    if (impact === "positive") {
+      prediction.points[i].price *= adjustmentFactor
+
+      // Ajuster aussi les intervalles de confiance si présents
+      if (prediction.confidenceInterval) {
+        prediction.confidenceInterval.upper[i].price *= adjustmentFactor
+        prediction.confidenceInterval.lower[i].price *= adjustmentFactor
+      }
+    } else if (impact === "negative") {
+      prediction.points[i].price /= adjustmentFactor
+
+      // Ajuster aussi les intervalles de confiance si présents
+      if (prediction.confidenceInterval) {
+        prediction.confidenceInterval.upper[i].price /= adjustmentFactor
+        prediction.confidenceInterval.lower[i].price /= adjustmentFactor
+      }
+    }
+  }
+
+  // Recalculer la tendance et les objectifs
+  updatePredictionTrendAndTargets(prediction, firstEstimateIndex)
+}
+
+/**
+ * Met à jour la tendance et les objectifs d'une prédiction
+ */
+function updatePredictionTrendAndTargets(prediction: EnhancedPredictionResult, firstEstimateIndex: number): void {
+  if (!prediction.points || firstEstimateIndex >= prediction.points.length - 1) {
+    return
+  }
+
   const firstEstimate = prediction.points[firstEstimateIndex]
   const lastEstimate = prediction.points[prediction.points.length - 1]
   const percentChange = (lastEstimate.price / firstEstimate.price - 1) * 100
 
+  // Mettre à jour la tendance
   if (percentChange > 3) {
     prediction.trend = "up"
   } else if (percentChange < -3) {
@@ -217,8 +347,8 @@ function adjustPredictionBasedOnTechnicalAnalysis(
     prediction.trend = "neutral"
   }
 
-  // Mettre à jour les objectifs
-  if (prediction.points.length > 7) {
+  // Mettre à jour les objectifs de prix
+  if (prediction.points.length > firstEstimateIndex + 7) {
     prediction.shortTermTarget = prediction.points[firstEstimateIndex + 6].price
   }
   prediction.longTermTarget = lastEstimate.price
