@@ -2,6 +2,7 @@ import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
 import type { StockHistoryPoint } from "./stock-service"
 import type { PredictionPoint, PredictionResult } from "./prediction-service"
+import { serverEnv } from "./env-config"
 
 /**
  * Interface pour la réponse de l'IA
@@ -20,6 +21,7 @@ interface AIPredictionResponse {
 
 /**
  * Génère des prédictions pour une action en utilisant l'IA
+ * Cette fonction doit être appelée uniquement côté serveur
  */
 export async function generateAIPrediction(
   symbol: string,
@@ -29,6 +31,11 @@ export async function generateAIPrediction(
   days = 30,
 ): Promise<PredictionResult> {
   try {
+    // Vérifier que la clé API OpenAI est disponible
+    if (!serverEnv.OPENAI_API_KEY) {
+      throw new Error("OpenAI API key is missing. Please check your environment variables.")
+    }
+
     // Préparer les données historiques pour l'IA
     const historicalPrices = historicalData
       .slice(0, Math.min(60, historicalData.length))
@@ -68,12 +75,13 @@ Réponds uniquement avec un objet JSON valide au format suivant, sans texte supp
 }
 `
 
-    // Appeler l'API OpenAI
+    // Appeler l'API OpenAI avec la clé API du serveur
     const { text } = await generateText({
       model: openai("gpt-4o"),
       prompt,
       temperature: 0.2, // Réduire la température pour des résultats plus cohérents
       maxTokens: 2000,
+      apiKey: serverEnv.OPENAI_API_KEY, // Utiliser la clé API du serveur
     })
 
     // Analyser la réponse JSON

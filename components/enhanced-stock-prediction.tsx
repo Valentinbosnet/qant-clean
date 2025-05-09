@@ -19,6 +19,7 @@ import {
   Eye,
   Globe,
   MessageCircle,
+  Key,
 } from "lucide-react"
 import {
   Line,
@@ -104,7 +105,13 @@ export function EnhancedStockPrediction({
       setPredictionResult(enhancedPrediction)
     } catch (err: any) {
       console.error("Erreur lors de la génération de la prédiction:", err)
-      setError(err.message || "Erreur lors de la génération de la prédiction")
+
+      // Vérifier si l'erreur est liée à une clé API manquante
+      if (err.message && err.message.includes("API key is missing")) {
+        setError("Clé API OpenAI manquante. Veuillez configurer votre clé API dans les paramètres.")
+      } else {
+        setError(err.message || "Erreur lors de la génération de la prédiction")
+      }
     } finally {
       setLoading(false)
     }
@@ -238,10 +245,19 @@ export function EnhancedStockPrediction({
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <AlertTriangle className="h-10 w-10 text-yellow-500 mb-2" />
                 <p className="text-muted-foreground">{error}</p>
-                <Button variant="outline" size="sm" className="mt-4" onClick={generatePredictionData}>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Réessayer
-                </Button>
+                <div className="flex gap-2 mt-4">
+                  <Button variant="outline" size="sm" onClick={generatePredictionData}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Réessayer
+                  </Button>
+
+                  {error.includes("Clé API") && (
+                    <Button variant="default" size="sm" onClick={() => (window.location.href = "/settings/api")}>
+                      <Key className="h-4 w-4 mr-2" />
+                      Configurer les API
+                    </Button>
+                  )}
+                </div>
               </div>
             ) : (
               <>
