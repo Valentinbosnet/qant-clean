@@ -2,7 +2,7 @@ import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
 import type { StockHistoryPoint } from "./stock-service"
 import type { PredictionPoint, PredictionResult } from "./prediction-service"
-import { serverEnv } from "./env-config"
+import { generatePrediction } from "./prediction-service"
 
 /**
  * Interface pour la réponse de l'IA
@@ -29,12 +29,38 @@ export async function generateAIPrediction(
   currentPrice: number,
   historicalData: StockHistoryPoint[],
   days = 30,
+  stock?: any,
 ): Promise<PredictionResult> {
   try {
     // Vérifier que la clé API OpenAI est disponible
-    if (!serverEnv.OPENAI_API_KEY) {
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn("OpenAI API key is missing. Falling back to ensemble prediction algorithm.")
+
+      // Si la clé API n'est pas disponible, utiliser l'algorithme d'ensemble comme solution de secours
+      if (stock && historicalData) {
+        const fallbackPrediction = await generatePrediction(
+          symbol,
+          historicalData,
+          {
+            algorithm: "ensemble",
+            days,
+          },
+          stock,
+        )
+
+        // Ajouter une note dans le raisonnement pour indiquer que c'est une prédiction de secours
+        return {
+          ...fallbackPrediction,
+          algorithm: "ai-fallback",
+          aiReasoning:
+            "Prédiction générée par l'algorithme d'ensemble car la clé API OpenAI n'est pas configurée. Veuillez configurer votre clé API dans les paramètres pour utiliser les prédictions basées sur l'IA.",
+        }
+      }
+
       throw new Error("OpenAI API key is missing. Please check your environment variables.")
     }
+
+    console.log("Generating AI prediction with OpenAI API key:", process.env.OPENAI_API_KEY ? "Available" : "Missing")
 
     // Préparer les données historiques pour l'IA
     const historicalPrices = historicalData
@@ -75,14 +101,18 @@ Réponds uniquement avec un objet JSON valide au format suivant, sans texte supp
 }
 `
 
+    console.log("Calling OpenAI API with prompt length:", prompt.length)
+
     // Appeler l'API OpenAI avec la clé API du serveur
     const { text } = await generateText({
       model: openai("gpt-4o"),
       prompt,
       temperature: 0.2, // Réduire la température pour des résultats plus cohérents
       maxTokens: 2000,
-      apiKey: serverEnv.OPENAI_API_KEY, // Utiliser la clé API du serveur
+      apiKey: process.env.OPENAI_API_KEY, // Utiliser la clé API du serveur
     })
+
+    console.log("OpenAI API response received, length:", text.length)
 
     // Analyser la réponse JSON
     const aiResponse: AIPredictionResponse = JSON.parse(text)
@@ -124,6 +154,31 @@ Réponds uniquement avec un objet JSON valide au format suivant, sans texte supp
     }
   } catch (error) {
     console.error("Erreur lors de la génération de prédictions IA:", error)
+
+    // Si l'erreur est liée à la clé API et que nous avons les données nécessaires pour une prédiction de secours
+    if (error instanceof Error && error.message.includes("API key") && stock && historicalData) {
+      console.log("Falling back to ensemble prediction due to API key error")
+
+      // Utiliser l'algorithme d'ensemble comme solution de secours
+      const fallbackPrediction = await generatePrediction(
+        symbol,
+        historicalData,
+        {
+          algorithm: "ensemble",
+          days,
+        },
+        stock,
+      )
+
+      // Ajouter une note dans le raisonnement pour indiquer que c'est une prédiction de secours
+      return {
+        ...fallbackPrediction,
+        algorithm: "ai-fallback",
+        aiReasoning:
+          "Prédiction générée par l'algorithme d'ensemble car la clé API OpenAI n'est pas configurée correctement. Veuillez vérifier votre clé API dans les paramètres.",
+      }
+    }
+
     throw new Error(
       `Échec de la génération de prédictions IA: ${error instanceof Error ? error.message : String(error)}`,
     )

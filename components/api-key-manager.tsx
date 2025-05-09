@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, Check, Key, X, Activity } from "lucide-react"
+import { AlertCircle, Check, Key, X, Activity, Code } from "lucide-react"
 import { clientEnv } from "@/lib/env-config"
 
 interface ApiKeyManagerProps {
@@ -190,10 +190,17 @@ export function ApiKeyManager({ onSave }: ApiKeyManagerProps) {
           {saving ? "Sauvegarde en cours..." : "Sauvegarder les clés"}
         </Button>
 
-        <Button variant="outline" onClick={() => (window.location.href = "/settings/api/test")}>
-          <Activity className="h-4 w-4 mr-2" />
-          Tester les API
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => (window.location.href = "/settings/api/test")}>
+            <Activity className="h-4 w-4 mr-2" />
+            Tester les API
+          </Button>
+
+          <Button variant="ghost" onClick={() => (window.location.href = "/settings/api/debug")}>
+            <Code className="h-4 w-4 mr-2" />
+            Diagnostic
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   )
