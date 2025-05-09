@@ -3,10 +3,9 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { RefreshCw, AlertTriangle, Info, Brain } from "lucide-react"
+import { RefreshCw, AlertTriangle, Info, Zap } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { EnhancedStockPrediction } from "@/components/enhanced-stock-prediction"
 import { PredictionAlerts } from "@/components/prediction-alerts"
@@ -15,8 +14,7 @@ import type { StockData } from "@/lib/stock-service"
 import { formatPrice } from "@/lib/utils"
 import type { PredictionAlgorithm } from "@/lib/prediction-service"
 import type { EnhancedPredictionResult } from "@/lib/enhanced-prediction-service"
-import { generatePrediction } from "@/lib/prediction-service"
-import { generateEnhancedPrediction } from "@/lib/enhanced-prediction-service"
+import { Badge } from "@/components/ui/badge"
 
 export default function PredictionsPage() {
   const [selectedSymbol, setSelectedSymbol] = useState("AAPL")
@@ -25,7 +23,7 @@ export default function PredictionsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [predictionDays, setPredictionDays] = useState(30)
-  const [selectedAlgorithm, setSelectedAlgorithm] = useState<PredictionAlgorithm>("ensemble")
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState<PredictionAlgorithm | "ai-enhanced">("ai-enhanced")
 
   // Charger les données de l'action sélectionnée
   useEffect(() => {
@@ -46,26 +44,30 @@ export default function PredictionsPage() {
         throw new Error("Données historiques insuffisantes pour générer une prédiction")
       }
 
-      // Générer la prédiction de base
-      const basePrediction = await generatePrediction(
-        selectedSymbol,
-        data.history,
-        {
-          algorithm: selectedAlgorithm,
-          days: predictionDays,
-        },
-        data,
-      )
+      // Appeler directement l'API de prédiction enrichie
+      try {
+        const response = await fetch(`/api/predictions/ai-enhanced`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            symbol: selectedSymbol,
+            days: predictionDays,
+          }),
+        })
 
-      // Améliorer la prédiction
-      const enhancedPrediction = await generateEnhancedPrediction(data, basePrediction, {
-        algorithm: selectedAlgorithm,
-        days: predictionDays,
-        confidenceLevel: 0.95,
-        includeTechnicalAnalysis: true,
-      })
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Erreur lors de la génération de prédictions IA enrichies")
+        }
 
-      setPredictionResult(enhancedPrediction)
+        const enhancedPrediction = await response.json()
+        setPredictionResult(enhancedPrediction)
+      } catch (enhancedError) {
+        console.error("Erreur lors de l'appel à l'API de prédiction IA enrichie:", enhancedError)
+        throw enhancedError
+      }
     } catch (err: any) {
       console.error("Erreur lors du chargement des données:", err)
       setError(err.message || "Erreur lors du chargement des données")
@@ -196,30 +198,16 @@ export default function PredictionsPage() {
                 </CardHeader>
               </Card>
 
-              <Tabs
-                defaultValue={selectedAlgorithm}
-                onValueChange={(value) => setSelectedAlgorithm(value as PredictionAlgorithm)}
-              >
-                <TabsList className="mb-4">
-                  <TabsTrigger value="sma">SMA</TabsTrigger>
-                  <TabsTrigger value="ema">EMA</TabsTrigger>
-                  <TabsTrigger value="linear">Linéaire</TabsTrigger>
-                  <TabsTrigger value="polynomial">Polynomial</TabsTrigger>
-                  <TabsTrigger value="ensemble">Ensemble</TabsTrigger>
-                  <TabsTrigger value="ai" className="flex items-center">
-                    <Brain className="h-3 w-3 mr-1" />
-                    IA
-                  </TabsTrigger>
-                </TabsList>
+              <div className="mb-4">
+                <div className="flex items-center">
+                  <Badge variant="outline" className="flex items-center">
+                    <Zap className="h-3 w-3 mr-1" />
+                    IA+ (Prédiction avancée)
+                  </Badge>
+                </div>
+              </div>
 
-                <TabsContent value={selectedAlgorithm}>
-                  <EnhancedStockPrediction
-                    stock={stockData}
-                    days={predictionDays}
-                    defaultAlgorithm={selectedAlgorithm}
-                  />
-                </TabsContent>
-              </Tabs>
+              <EnhancedStockPrediction stock={stockData} days={predictionDays} defaultAlgorithm="ai-enhanced" />
             </div>
           </div>
 

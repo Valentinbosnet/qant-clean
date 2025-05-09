@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -37,8 +36,8 @@ import {
 } from "recharts"
 import { formatPrice } from "@/lib/utils"
 import type { StockData } from "@/lib/stock-service"
-import { generatePrediction, type PredictionAlgorithm } from "@/lib/prediction-service"
-import { generateEnhancedPrediction, type EnhancedPredictionResult } from "@/lib/enhanced-prediction-service"
+import type { PredictionAlgorithm } from "@/lib/prediction-service"
+import type { EnhancedPredictionResult } from "@/lib/enhanced-prediction-service"
 import { PredictionAnalysis } from "./prediction-analysis"
 
 interface EnhancedStockPredictionProps {
@@ -54,7 +53,7 @@ interface EnhancedStockPredictionProps {
 export function EnhancedStockPrediction({
   stock,
   days = 30,
-  defaultAlgorithm = "ensemble",
+  defaultAlgorithm = "ai-enhanced",
   showConfidenceInterval = true,
   showTechnicalAnalysis = true,
   showMacroeconomicAnalysis = true,
@@ -96,6 +95,7 @@ export function EnhancedStockPrediction({
     setLoading(true)
     setError(null)
     setFallbackMode(false)
+    setAlgorithm("ai-enhanced")
 
     try {
       // Vérifier que nous avons suffisamment de données historiques
@@ -103,144 +103,34 @@ export function EnhancedStockPrediction({
         throw new Error("Données historiques insuffisantes pour générer une prédiction")
       }
 
-      // Si l'algorithme est "ai", utiliser la route API dédiée
-      if (algorithm === "ai") {
-        try {
-          // Appeler la route API qui fonctionne
-          const response = await fetch(`/api/predictions/ai-direct`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              symbol: stock.symbol,
-              stockName: stock.name,
-              currentPrice: stock.price,
-              historicalData: stock.history,
-              days,
-            }),
-          })
-
-          if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.error || "Erreur lors de la génération de prédictions IA")
-          }
-
-          const aiPrediction = await response.json()
-
-          // Améliorer la prédiction
-          const enhancedPrediction = await generateEnhancedPrediction(stock, aiPrediction, {
-            algorithm,
+      // Appeler la route API enrichie
+      try {
+        // Appeler la route API enrichie
+        const response = await fetch(`/api/predictions/ai-enhanced`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            symbol: stock.symbol,
             days,
-            confidenceLevel: 0.95,
-            includeTechnicalAnalysis: showTechnicalAnalysis,
-            includeMacroeconomicAnalysis: showMacroeconomicAnalysis,
-            includeSentimentAnalysis: showSentimentAnalysis,
-          })
+          }),
+        })
 
-          setPredictionResult(enhancedPrediction)
-          return
-        } catch (aiError) {
-          console.error("Erreur lors de l'appel à l'API de prédiction IA:", aiError)
-
-          // Si l'API IA échoue, utiliser l'algorithme d'ensemble comme solution de secours
-          console.log("Falling back to ensemble algorithm")
-          setFallbackMode(true)
-          setAlgorithm("ensemble")
-
-          // Générer une prédiction avec l'algorithme d'ensemble
-          const fallbackPrediction = await generatePrediction(
-            stock.symbol,
-            stock.history,
-            {
-              algorithm: "ensemble",
-              days,
-            },
-            stock,
-          )
-
-          // Améliorer la prédiction
-          const enhancedPrediction = await generateEnhancedPrediction(stock, fallbackPrediction, {
-            algorithm: "ensemble",
-            days,
-            confidenceLevel: 0.95,
-            includeTechnicalAnalysis: showTechnicalAnalysis,
-            includeMacroeconomicAnalysis: showMacroeconomicAnalysis,
-            includeSentimentAnalysis: showSentimentAnalysis,
-          })
-
-          setPredictionResult(enhancedPrediction)
-          return
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Erreur lors de la génération de prédictions IA enrichies")
         }
+
+        const enhancedPrediction = await response.json()
+        setPredictionResult(enhancedPrediction)
+      } catch (enhancedError) {
+        console.error("Erreur lors de l'appel à l'API de prédiction IA enrichie:", enhancedError)
+        throw enhancedError
       }
-
-      // Si l'algorithme est "ai-enhanced", utiliser la nouvelle route API enrichie
-      if (algorithm === "ai-enhanced") {
-        try {
-          // Appeler la route API enrichie
-          const response = await fetch(`/api/predictions/ai-enhanced`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              symbol: stock.symbol,
-              days,
-            }),
-          })
-
-          if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.error || "Erreur lors de la génération de prédictions IA enrichies")
-          }
-
-          const enhancedPrediction = await response.json()
-          setPredictionResult(enhancedPrediction)
-          return
-        } catch (enhancedError) {
-          console.error("Erreur lors de l'appel à l'API de prédiction IA enrichie:", enhancedError)
-          throw enhancedError
-        }
-      }
-
-      // Pour les autres algorithmes, utiliser la méthode standard
-      const basePrediction = await generatePrediction(
-        stock.symbol,
-        stock.history,
-        {
-          algorithm: algorithm as PredictionAlgorithm,
-          days,
-        },
-        stock,
-      )
-
-      // Vérifier si nous sommes en mode de secours
-      if (basePrediction.algorithm === "ai-fallback") {
-        setFallbackMode(true)
-      }
-
-      // Améliorer la prédiction
-      const enhancedPrediction = await generateEnhancedPrediction(stock, basePrediction, {
-        algorithm: algorithm as PredictionAlgorithm,
-        days,
-        confidenceLevel: 0.95,
-        includeTechnicalAnalysis: showTechnicalAnalysis,
-        includeMacroeconomicAnalysis: showMacroeconomicAnalysis,
-        includeSentimentAnalysis: showSentimentAnalysis,
-      })
-
-      setPredictionResult(enhancedPrediction)
     } catch (err: any) {
       console.error("Erreur lors de la génération de la prédiction:", err)
-
-      // Vérifier si l'erreur est liée à une clé API manquante
-      if (err.message && err.message.includes("API key")) {
-        setError(
-          "Clé API OpenAI manquante. Veuillez configurer votre clé API dans les paramètres pour utiliser les prédictions basées sur l'IA.",
-        )
-      } else {
-        setError(err.message || "Erreur lors de la génération de la prédiction")
-      }
+      setError(err.message || "Erreur lors de la génération de la prédiction")
     } finally {
       setLoading(false)
     }
@@ -362,336 +252,316 @@ export function EnhancedStockPrediction({
           </div>
         )}
 
-        <Tabs
-          defaultValue={algorithm}
-          onValueChange={(value) => setAlgorithm(value as PredictionAlgorithm | "ai-enhanced")}
-        >
-          <div className="flex justify-between items-center">
-            <TabsList className="mb-4">
-              <TabsTrigger value="sma">SMA</TabsTrigger>
-              <TabsTrigger value="ema">EMA</TabsTrigger>
-              <TabsTrigger value="linear">Linéaire</TabsTrigger>
-              <TabsTrigger value="polynomial">Polynomial</TabsTrigger>
-              <TabsTrigger value="ensemble">Ensemble</TabsTrigger>
-              <TabsTrigger value="ai" className="flex items-center">
-                <Brain className="h-3 w-3 mr-1" />
-                IA
-              </TabsTrigger>
-              <TabsTrigger value="ai-enhanced" className="flex items-center">
-                <Zap className="h-3 w-3 mr-1" />
-                IA+
-              </TabsTrigger>
-            </TabsList>
+        <div className="flex justify-between items-center">
+          <div className="mb-4 flex items-center">
+            <Badge variant="outline" className="flex items-center">
+              <Zap className="h-3 w-3 mr-1" />
+              IA+ (Prédiction avancée)
+            </Badge>
+          </div>
 
-            <div className="flex gap-2">
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowConfidence(!showConfidence)}
+              className={showConfidence ? "bg-primary/10" : ""}
+            >
+              <Eye className="h-3 w-3 mr-1" />
+              Intervalle
+            </Button>
+
+            {hasAdvancedAnalysis && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowConfidence(!showConfidence)}
-                className={showConfidence ? "bg-primary/10" : ""}
+                onClick={() => setShowAnalysisPanel(!showAnalysisPanel)}
+                className={showAnalysisPanel ? "bg-primary/10" : ""}
               >
-                <Eye className="h-3 w-3 mr-1" />
-                Intervalle
+                <Activity className="h-3 w-3 mr-1" />
+                Analyses
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-[250px] w-full" />
+            <div className="flex justify-between">
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="h-5 w-20" />
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <AlertTriangle className="h-10 w-10 text-yellow-500 mb-2" />
+            <p className="text-muted-foreground">{error}</p>
+            <div className="flex gap-2 mt-4">
+              <Button variant="outline" size="sm" onClick={generatePredictionData}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Réessayer
               </Button>
 
-              {hasAdvancedAnalysis && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAnalysisPanel(!showAnalysisPanel)}
-                  className={showAnalysisPanel ? "bg-primary/10" : ""}
-                >
-                  <Activity className="h-3 w-3 mr-1" />
-                  Analyses
+              {error.includes("Clé API") && (
+                <Button variant="default" size="sm" onClick={() => (window.location.href = "/settings/api")}>
+                  <Key className="h-4 w-4 mr-2" />
+                  Configurer les API
                 </Button>
               )}
             </div>
           </div>
+        ) : (
+          <>
+            <div className="h-[250px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                {showConfidence && (predictionResult?.confidenceInterval || chartData.some((d) => d.upperBound)) ? (
+                  <AreaChart data={chartData}>
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(value) => {
+                        const date = new Date(value)
+                        return `${date.getDate()}/${date.getMonth() + 1}`
+                      }}
+                      minTickGap={30}
+                    />
+                    <YAxis domain={["auto", "auto"]} tickFormatter={(value) => formatPrice(value)} width={60} />
+                    <Tooltip
+                      formatter={(value: number) => [formatPrice(value), "Prix"]}
+                      labelFormatter={(label) => {
+                        const date = new Date(label)
+                        return date.toLocaleDateString()
+                      }}
+                    />
+                    <Legend />
+                    {predictionStartIndex > 0 && (
+                      <ReferenceLine
+                        x={chartData[predictionStartIndex].date}
+                        stroke="#888"
+                        strokeDasharray="3 3"
+                        label={{ value: "Aujourd'hui", position: "insideTopRight" }}
+                      />
+                    )}
+                    <Area
+                      type="monotone"
+                      dataKey="upperBound"
+                      stroke="transparent"
+                      fill="var(--color-price)"
+                      fillOpacity={0.1}
+                      name="Intervalle de confiance"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="lowerBound"
+                      stroke="transparent"
+                      fill="var(--color-price)"
+                      fillOpacity={0.1}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="price"
+                      stroke="var(--color-price)"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                      name="Prix prédit"
+                      strokeDasharray={(d) => (d.type === "estimate" ? "5 5" : "0")}
+                    />
+                  </AreaChart>
+                ) : (
+                  <LineChart data={chartData}>
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(value) => {
+                        const date = new Date(value)
+                        return `${date.getDate()}/${date.getMonth() + 1}`
+                      }}
+                      minTickGap={30}
+                    />
+                    <YAxis domain={["auto", "auto"]} tickFormatter={(value) => formatPrice(value)} width={60} />
+                    <Tooltip
+                      formatter={(value: number) => [formatPrice(value), "Prix"]}
+                      labelFormatter={(label) => {
+                        const date = new Date(label)
+                        return date.toLocaleDateString()
+                      }}
+                    />
+                    {predictionStartIndex > 0 && (
+                      <ReferenceLine
+                        x={chartData[predictionStartIndex].date}
+                        stroke="#888"
+                        strokeDasharray="3 3"
+                        label={{ value: "Aujourd'hui", position: "insideTopRight" }}
+                      />
+                    )}
+                    <Line
+                      type="monotone"
+                      dataKey="price"
+                      stroke="var(--color-price)"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                      strokeDasharray={(d) => (d.type === "estimate" ? "5 5" : "0")}
+                    />
+                  </LineChart>
+                )}
+              </ResponsiveContainer>
+            </div>
 
-          <TabsContent value={algorithm}>
-            {loading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-[250px] w-full" />
-                <div className="flex justify-between">
-                  <Skeleton className="h-5 w-20" />
-                  <Skeleton className="h-5 w-20" />
+            {predictionResult && (
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                <div className="rounded-lg bg-muted p-3">
+                  <div className="text-sm font-medium text-muted-foreground">Objectif 7 jours</div>
+                  <div className="mt-1 flex items-baseline">
+                    <span className="text-2xl font-semibold">{formatPrice(predictionResult.shortTermTarget || 0)}</span>
+                    {predictionResult.shortTermTarget && (
+                      <span
+                        className={`ml-2 text-sm ${
+                          predictionResult.shortTermTarget > lastActualPrice ? "text-green-500" : "text-red-500"
+                        }`}
+                      >
+                        {((predictionResult.shortTermTarget / lastActualPrice - 1) * 100).toFixed(2)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-lg bg-muted p-3">
+                  <div className="text-sm font-medium text-muted-foreground">Objectif {days} jours</div>
+                  <div className="mt-1 flex items-baseline">
+                    <span className="text-2xl font-semibold">{formatPrice(predictionResult.longTermTarget || 0)}</span>
+                    {predictionResult.longTermTarget && (
+                      <span
+                        className={`ml-2 text-sm ${
+                          predictionResult.longTermTarget > lastActualPrice ? "text-green-500" : "text-red-500"
+                        }`}
+                      >
+                        {((predictionResult.longTermTarget / lastActualPrice - 1) * 100).toFixed(2)}%
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            ) : error ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <AlertTriangle className="h-10 w-10 text-yellow-500 mb-2" />
-                <p className="text-muted-foreground">{error}</p>
-                <div className="flex gap-2 mt-4">
-                  <Button variant="outline" size="sm" onClick={generatePredictionData}>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Réessayer
-                  </Button>
-
-                  {error.includes("Clé API") && (
-                    <Button variant="default" size="sm" onClick={() => (window.location.href = "/settings/api")}>
-                      <Key className="h-4 w-4 mr-2" />
-                      Configurer les API
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="h-[250px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    {showConfidence && (predictionResult?.confidenceInterval || chartData.some((d) => d.upperBound)) ? (
-                      <AreaChart data={chartData}>
-                        <XAxis
-                          dataKey="date"
-                          tickFormatter={(value) => {
-                            const date = new Date(value)
-                            return `${date.getDate()}/${date.getMonth() + 1}`
-                          }}
-                          minTickGap={30}
-                        />
-                        <YAxis domain={["auto", "auto"]} tickFormatter={(value) => formatPrice(value)} width={60} />
-                        <Tooltip
-                          formatter={(value: number) => [formatPrice(value), "Prix"]}
-                          labelFormatter={(label) => {
-                            const date = new Date(label)
-                            return date.toLocaleDateString()
-                          }}
-                        />
-                        <Legend />
-                        {predictionStartIndex > 0 && (
-                          <ReferenceLine
-                            x={chartData[predictionStartIndex].date}
-                            stroke="#888"
-                            strokeDasharray="3 3"
-                            label={{ value: "Aujourd'hui", position: "insideTopRight" }}
-                          />
-                        )}
-                        <Area
-                          type="monotone"
-                          dataKey="upperBound"
-                          stroke="transparent"
-                          fill="var(--color-price)"
-                          fillOpacity={0.1}
-                          name="Intervalle de confiance"
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="lowerBound"
-                          stroke="transparent"
-                          fill="var(--color-price)"
-                          fillOpacity={0.1}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="price"
-                          stroke="var(--color-price)"
-                          strokeWidth={2}
-                          dot={false}
-                          activeDot={{ r: 4 }}
-                          name="Prix prédit"
-                          strokeDasharray={(d) => (d.type === "estimate" ? "5 5" : "0")}
-                        />
-                      </AreaChart>
-                    ) : (
-                      <LineChart data={chartData}>
-                        <XAxis
-                          dataKey="date"
-                          tickFormatter={(value) => {
-                            const date = new Date(value)
-                            return `${date.getDate()}/${date.getMonth() + 1}`
-                          }}
-                          minTickGap={30}
-                        />
-                        <YAxis domain={["auto", "auto"]} tickFormatter={(value) => formatPrice(value)} width={60} />
-                        <Tooltip
-                          formatter={(value: number) => [formatPrice(value), "Prix"]}
-                          labelFormatter={(label) => {
-                            const date = new Date(label)
-                            return date.toLocaleDateString()
-                          }}
-                        />
-                        {predictionStartIndex > 0 && (
-                          <ReferenceLine
-                            x={chartData[predictionStartIndex].date}
-                            stroke="#888"
-                            strokeDasharray="3 3"
-                            label={{ value: "Aujourd'hui", position: "insideTopRight" }}
-                          />
-                        )}
-                        <Line
-                          type="monotone"
-                          dataKey="price"
-                          stroke="var(--color-price)"
-                          strokeWidth={2}
-                          dot={false}
-                          activeDot={{ r: 4 }}
-                          strokeDasharray={(d) => (d.type === "estimate" ? "5 5" : "0")}
-                        />
-                      </LineChart>
-                    )}
-                  </ResponsiveContainer>
-                </div>
-
-                {predictionResult && (
-                  <div className="mt-4 grid grid-cols-2 gap-4">
-                    <div className="rounded-lg bg-muted p-3">
-                      <div className="text-sm font-medium text-muted-foreground">Objectif 7 jours</div>
-                      <div className="mt-1 flex items-baseline">
-                        <span className="text-2xl font-semibold">
-                          {formatPrice(predictionResult.shortTermTarget || 0)}
-                        </span>
-                        {predictionResult.shortTermTarget && (
-                          <span
-                            className={`ml-2 text-sm ${
-                              predictionResult.shortTermTarget > lastActualPrice ? "text-green-500" : "text-red-500"
-                            }`}
-                          >
-                            {((predictionResult.shortTermTarget / lastActualPrice - 1) * 100).toFixed(2)}%
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="rounded-lg bg-muted p-3">
-                      <div className="text-sm font-medium text-muted-foreground">Objectif {days} jours</div>
-                      <div className="mt-1 flex items-baseline">
-                        <span className="text-2xl font-semibold">
-                          {formatPrice(predictionResult.longTermTarget || 0)}
-                        </span>
-                        {predictionResult.longTermTarget && (
-                          <span
-                            className={`ml-2 text-sm ${
-                              predictionResult.longTermTarget > lastActualPrice ? "text-green-500" : "text-red-500"
-                            }`}
-                          >
-                            {((predictionResult.longTermTarget / lastActualPrice - 1) * 100).toFixed(2)}%
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Afficher les catalyseurs et risques pour l'IA enrichie */}
-                {algorithm === "ai-enhanced" && predictionResult && (
-                  <div className="mt-4 grid grid-cols-2 gap-4">
-                    {predictionResult.catalysts && predictionResult.catalysts.length > 0 && (
-                      <div className="rounded-lg bg-muted p-3">
-                        <div className="text-sm font-medium text-muted-foreground mb-2">Catalyseurs potentiels</div>
-                        <ul className="text-sm space-y-1">
-                          {predictionResult.catalysts.map((catalyst, index) => (
-                            <li key={index} className="flex items-start">
-                              <ArrowUp className="h-3 w-3 text-green-500 mr-2 mt-1" />
-                              <span>{catalyst}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {predictionResult.risks && predictionResult.risks.length > 0 && (
-                      <div className="rounded-lg bg-muted p-3">
-                        <div className="text-sm font-medium text-muted-foreground mb-2">Risques identifiés</div>
-                        <ul className="text-sm space-y-1">
-                          {predictionResult.risks.map((risk, index) => (
-                            <li key={index} className="flex items-start">
-                              <ArrowDown className="h-3 w-3 text-red-500 mr-2 mt-1" />
-                              <span>{risk}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Afficher le panneau d'analyse si demandé */}
-                {showAnalysisPanel && predictionResult && (
-                  <div className="mt-4">
-                    <PredictionAnalysis prediction={predictionResult} />
-                  </div>
-                )}
-
-                {/* Afficher le résumé des analyses si non affiché en détail */}
-                {!showAnalysisPanel && predictionResult && (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {predictionResult.technicalAnalysis && (
-                      <Badge
-                        variant={
-                          predictionResult.technicalAnalysis.trend === "up"
-                            ? "success"
-                            : predictionResult.technicalAnalysis.trend === "down"
-                              ? "destructive"
-                              : "outline"
-                        }
-                        className="flex items-center"
-                      >
-                        <BarChart4 className="h-3 w-3 mr-1" />
-                        Technique:{" "}
-                        {predictionResult.technicalAnalysis.trend === "up"
-                          ? "Positif"
-                          : predictionResult.technicalAnalysis.trend === "down"
-                            ? "Négatif"
-                            : "Neutre"}
-                      </Badge>
-                    )}
-                    {predictionResult.macroeconomicAnalysis && (
-                      <Badge
-                        variant={
-                          predictionResult.macroeconomicAnalysis.impact === "positive"
-                            ? "success"
-                            : predictionResult.macroeconomicAnalysis.impact === "negative"
-                              ? "destructive"
-                              : "outline"
-                        }
-                        className="flex items-center"
-                      >
-                        <Globe className="h-3 w-3 mr-1" />
-                        Macro:{" "}
-                        {predictionResult.macroeconomicAnalysis.impact === "positive"
-                          ? "Positif"
-                          : predictionResult.macroeconomicAnalysis.impact === "negative"
-                            ? "Négatif"
-                            : "Neutre"}
-                      </Badge>
-                    )}
-                    {predictionResult.sentimentAnalysis && (
-                      <Badge
-                        variant={
-                          predictionResult.sentimentAnalysis.impact === "positive"
-                            ? "success"
-                            : predictionResult.sentimentAnalysis.impact === "negative"
-                              ? "destructive"
-                              : "outline"
-                        }
-                        className="flex items-center"
-                      >
-                        <MessageCircle className="h-3 w-3 mr-1" />
-                        Sentiment:{" "}
-                        {predictionResult.sentimentAnalysis.impact === "positive"
-                          ? "Positif"
-                          : predictionResult.sentimentAnalysis.impact === "negative"
-                            ? "Négatif"
-                            : "Neutre"}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-
-                {/* Afficher le raisonnement de l'IA si disponible */}
-                {(algorithm === "ai" || algorithm === "ai-enhanced") && predictionResult?.aiReasoning && (
-                  <div className="mt-4 p-3 rounded-lg bg-muted">
-                    <div className="text-sm font-medium mb-1 flex items-center">
-                      <Brain className="h-4 w-4 mr-1" />
-                      Analyse de l'IA
-                    </div>
-                    <p className="text-sm text-muted-foreground">{predictionResult.aiReasoning}</p>
-                  </div>
-                )}
-              </>
             )}
-          </TabsContent>
-        </Tabs>
+
+            {/* Afficher les catalyseurs et risques pour l'IA enrichie */}
+            {algorithm === "ai-enhanced" && predictionResult && (
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                {predictionResult.catalysts && predictionResult.catalysts.length > 0 && (
+                  <div className="rounded-lg bg-muted p-3">
+                    <div className="text-sm font-medium text-muted-foreground mb-2">Catalyseurs potentiels</div>
+                    <ul className="text-sm space-y-1">
+                      {predictionResult.catalysts.map((catalyst, index) => (
+                        <li key={index} className="flex items-start">
+                          <ArrowUp className="h-3 w-3 text-green-500 mr-2 mt-1" />
+                          <span>{catalyst}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {predictionResult.risks && predictionResult.risks.length > 0 && (
+                  <div className="rounded-lg bg-muted p-3">
+                    <div className="text-sm font-medium text-muted-foreground mb-2">Risques identifiés</div>
+                    <ul className="text-sm space-y-1">
+                      {predictionResult.risks.map((risk, index) => (
+                        <li key={index} className="flex items-start">
+                          <ArrowDown className="h-3 w-3 text-red-500 mr-2 mt-1" />
+                          <span>{risk}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Afficher le panneau d'analyse si demandé */}
+            {showAnalysisPanel && predictionResult && (
+              <div className="mt-4">
+                <PredictionAnalysis prediction={predictionResult} />
+              </div>
+            )}
+
+            {/* Afficher le résumé des analyses si non affiché en détail */}
+            {!showAnalysisPanel && predictionResult && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {predictionResult.technicalAnalysis && (
+                  <Badge
+                    variant={
+                      predictionResult.technicalAnalysis.trend === "up"
+                        ? "success"
+                        : predictionResult.technicalAnalysis.trend === "down"
+                          ? "destructive"
+                          : "outline"
+                    }
+                    className="flex items-center"
+                  >
+                    <BarChart4 className="h-3 w-3 mr-1" />
+                    Technique:{" "}
+                    {predictionResult.technicalAnalysis.trend === "up"
+                      ? "Positif"
+                      : predictionResult.technicalAnalysis.trend === "down"
+                        ? "Négatif"
+                        : "Neutre"}
+                  </Badge>
+                )}
+                {predictionResult.macroeconomicAnalysis && (
+                  <Badge
+                    variant={
+                      predictionResult.macroeconomicAnalysis.impact === "positive"
+                        ? "success"
+                        : predictionResult.macroeconomicAnalysis.impact === "negative"
+                          ? "destructive"
+                          : "outline"
+                    }
+                    className="flex items-center"
+                  >
+                    <Globe className="h-3 w-3 mr-1" />
+                    Macro:{" "}
+                    {predictionResult.macroeconomicAnalysis.impact === "positive"
+                      ? "Positif"
+                      : predictionResult.macroeconomicAnalysis.impact === "negative"
+                        ? "Négatif"
+                        : "Neutre"}
+                  </Badge>
+                )}
+                {predictionResult.sentimentAnalysis && (
+                  <Badge
+                    variant={
+                      predictionResult.sentimentAnalysis.impact === "positive"
+                        ? "success"
+                        : predictionResult.sentimentAnalysis.impact === "negative"
+                          ? "destructive"
+                          : "outline"
+                    }
+                    className="flex items-center"
+                  >
+                    <MessageCircle className="h-3 w-3 mr-1" />
+                    Sentiment:{" "}
+                    {predictionResult.sentimentAnalysis.impact === "positive"
+                      ? "Positif"
+                      : predictionResult.sentimentAnalysis.impact === "negative"
+                        ? "Négatif"
+                        : "Neutre"}
+                  </Badge>
+                )}
+              </div>
+            )}
+
+            {/* Afficher le raisonnement de l'IA si disponible */}
+            {(algorithm === "ai" || algorithm === "ai-enhanced") && predictionResult?.aiReasoning && (
+              <div className="mt-4 p-3 rounded-lg bg-muted">
+                <div className="text-sm font-medium mb-1 flex items-center">
+                  <Brain className="h-4 w-4 mr-1" />
+                  Analyse de l'IA
+                </div>
+                <p className="text-sm text-muted-foreground">{predictionResult.aiReasoning}</p>
+              </div>
+            )}
+          </>
+        )}
       </CardContent>
 
       <CardFooter className="flex flex-col items-start">
@@ -706,26 +576,7 @@ export function EnhancedStockPrediction({
             <BarChart4 className="h-3 w-3 mr-1" />
             <span>
               Basé sur {stock.history.length} jours d'historique avec{" "}
-              {algorithm === "ai" ? (
-                <span className="font-medium">
-                  {fallbackMode ? "l'algorithme d'ensemble (secours)" : "l'intelligence artificielle"}
-                </span>
-              ) : algorithm === "ai-enhanced" ? (
-                <span className="font-medium">l'IA enrichie (Alpha Vantage + OpenAI)</span>
-              ) : (
-                <span>
-                  l'algorithme{" "}
-                  {algorithm === "sma"
-                    ? "SMA"
-                    : algorithm === "ema"
-                      ? "EMA"
-                      : algorithm === "linear"
-                        ? "Régression linéaire"
-                        : algorithm === "polynomial"
-                          ? "Régression polynomiale"
-                          : "Ensemble"}
-                </span>
-              )}
+              <span className="font-medium">l'IA enrichie (Alpha Vantage + Analyse avancée)</span>
             </span>
           </div>
         </div>

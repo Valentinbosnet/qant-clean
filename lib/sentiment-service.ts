@@ -271,3 +271,11 @@ function generateMockSentimentData(symbol: string): SentimentAnalysis {
 export async function getSentimentData(symbol: string, forceRefresh = false): Promise<SentimentAnalysis> {
   return getSentimentAnalysis(symbol, forceRefresh)
 }
+
+/**
+ * Récupère les données de sentiment pour une action donnée
+ * Alias de getSentimentAnalysis pour la compatibilité
+ */
+// export async function getSentimentData(symbol: string) {
+//   return getSentimentAnalysis(symbol)
+// }

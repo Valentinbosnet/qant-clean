@@ -615,6 +615,7 @@ export async function getCompanyFundamentals(symbol: string): Promise<CompanyFun
     // Vérifier le cache d'abord
     const cacheKey = `fundamentals_${symbol}`
     const cachedData = getFromCache<CompanyFundamentals>(cacheKey)
+
     if (cachedData) {
       return cachedData
     }

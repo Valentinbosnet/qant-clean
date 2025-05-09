@@ -570,26 +570,51 @@ export function analyzeIndicators(indicators: TechnicalIndicators): {
 }
 
 /**
- * Récupère et calcule les indicateurs techniques pour un symbole donné
- * @param symbol Symbole de l'action
- * @param history Données historiques (optionnel, sera récupéré si non fourni)
+ * Récupère les indicateurs techniques pour une action donnée
  */
-export async function getTechnicalIndicators(
-  symbol: string,
-  history?: StockHistoryPoint[],
-): Promise<TechnicalIndicators> {
+export async function getTechnicalIndicators(symbol: string, historicalData?: StockHistoryPoint[]) {
   try {
-    // Si l'historique n'est pas fourni, on le récupère
-    if (!history || history.length === 0) {
-      // Importer de manière dynamique pour éviter les dépendances circulaires
-      const { getStockHistory } = await import("./stock-service")
-      history = await getStockHistory(symbol, 365)
+    // Si les données historiques ne sont pas fournies, les récupérer
+    let history = historicalData
+    if (!history) {
+      const { getStockData } = await import("./stock-service")
+      const stockData = await getStockData(symbol)
+      if (!stockData || !stockData.history || stockData.history.length < 30) {
+        throw new Error("Insufficient historical data")
+      }
+      history = stockData.history
     }
 
-    // Calculer les indicateurs techniques
-    return calculateIndicators(history)
+    // Préparer les données dans l'ordre chronologique (du plus ancien au plus récent)
+    const chronologicalHistory = [...history].reverse()
+    const prices = chronologicalHistory.map((point) => point.price)
+
+    // Calculer le RSI (Relative Strength Index)
+    const rsi = calculateRSI(prices, 14)
+
+    // Calculer les moyennes mobiles
+    const ma20 = calculateSMA(prices, 20)
+    const ma50 = calculateSMA(prices, 50)
+    const ma200 = calculateSMA(prices, 200)
+
+    // Calculer le MACD
+    const macd = calculateMACD(prices, 12, 26, 9)
+
+    // Calculer les bandes de Bollinger
+    const bollinger = calculateBollingerBands(prices, 20, 2)
+
+    return {
+      RSI: rsi,
+      MA: {
+        MA20: ma20,
+        MA50: ma50,
+        MA200: ma200,
+      },
+      MACD: macd,
+      Bollinger: bollinger,
+    }
   } catch (error) {
-    console.error(`Erreur lors du calcul des indicateurs techniques pour ${symbol}:`, error)
-    return {} // Retourner un objet vide en cas d'erreur
+    console.error("Error calculating technical indicators:", error)
+    return {}
   }
 }

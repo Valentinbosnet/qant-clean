@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server"
-import { generateEnhancedAIPrediction } from "@/lib/enhanced-ai-prediction-service"
+import { type NextRequest, NextResponse } from "next/server"
 import { getStockData } from "@/lib/stock-service"
+import { generateEnhancedAIPrediction } from "@/lib/enhanced-ai-prediction-service"
 import { serverEnv } from "@/lib/env-config"
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { symbol, days = 30 } = await request.json()
 
@@ -14,21 +14,8 @@ export async function POST(request: Request) {
     // Récupérer les données de l'action
     const stockData = await getStockData(symbol)
 
-    if (!stockData.history || stockData.history.length < 30) {
-      return NextResponse.json(
-        { error: "Données historiques insuffisantes pour générer une prédiction" },
-        { status: 400 },
-      )
-    }
-
-    // Vérifier que la clé API OpenAI est disponible
-    const apiKey = serverEnv.OPENAI_API_KEY
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "OpenAI API key is missing. Please check your environment variables." },
-        { status: 500 },
-      )
+    if (!stockData) {
+      return NextResponse.json({ error: "Stock data not found" }, { status: 404 })
     }
 
     // Générer la prédiction enrichie
@@ -38,17 +25,14 @@ export async function POST(request: Request) {
       stockData.price,
       stockData.history,
       days,
-      apiKey,
+      serverEnv.OPENAI_API_KEY, // Passer la clé API (peut être undefined)
     )
 
     return NextResponse.json(prediction)
   } catch (error) {
-    console.error("Erreur lors de la génération de prédictions IA enrichies via API:", error)
+    console.error("Error in AI enhanced prediction API:", error)
     return NextResponse.json(
-      {
-        error: "Échec de la génération de prédictions IA enrichies",
-        details: error instanceof Error ? error.message : String(error),
-      },
+      { error: `Failed to generate enhanced prediction: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 },
     )
   }
