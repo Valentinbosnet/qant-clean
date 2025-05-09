@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useFavorites } from "@/hooks/use-favorites"
+import { PredictionWidget } from "@/components/prediction-widget"
+import { AuthDebugPanel } from "@/components/auth/auth-debug-panel"
 
 export default function Home() {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -127,9 +129,20 @@ export default function Home() {
         </div>
       )}
 
-      <ApiStatus />
-      <StockGrid />
+      {/* Widgets du tableau de bord */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+        <div className="lg:col-span-3">
+          <ApiStatus />
+          <StockGrid />
+        </div>
+        <div className="space-y-6">
+          <PredictionWidget />
+          {/* Autres widgets peuvent être ajoutés ici */}
+        </div>
+      </div>
+
       <StockDetailModal />
+      <AuthDebugPanel />
 
       <footer className="text-center mt-16 mb-8 text-sm text-gray-500">
         &copy; {new Date().getFullYear()} Stock Dashboard. Toutes les données sont fournies par Alpha Vantage.
