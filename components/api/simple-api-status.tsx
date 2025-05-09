@@ -1,0 +1,97 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { CheckCircle2, XCircle, AlertTriangle, RefreshCw } from "lucide-react"
+import { clientEnv } from "@/lib/env-config"
+
+export function SimpleApiStatus() {
+  const [status, setStatus] = useState<"checking" | "success" | "error" | "idle">("idle")
+  const [message, setMessage] = useState<string>("")
+
+  const checkApiStatus = async () => {
+    setStatus("checking")
+    setMessage("")
+
+    try {
+      const response = await fetch(`${clientEnv.NEXT_PUBLIC_API_BASE_URL}/api/test/openai-simple`)
+
+      if (response.ok) {
+        setStatus("success")
+        setMessage("L'API OpenAI est correctement configurée et fonctionnelle.")
+      } else {
+        const data = await response.json()
+        setStatus("error")
+        setMessage(data.error || "L'API OpenAI n'est pas correctement configurée.")
+      }
+    } catch (error) {
+      console.error("Erreur lors de la vérification de l'API:", error)
+      setStatus("error")
+      setMessage("Erreur de connexion. Vérifiez votre connexion internet et réessayez.")
+    }
+  }
+
+  useEffect(() => {
+    checkApiStatus()
+  }, [])
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-medium">Statut de l'API OpenAI</h3>
+        {status !== "checking" && (
+          <Badge
+            variant={status === "success" ? "success" : status === "error" ? "destructive" : "outline"}
+            className="ml-2"
+          >
+            {status === "success" ? "Fonctionnelle" : status === "error" ? "Erreur" : "Vérification..."}
+          </Badge>
+        )}
+      </div>
+
+      {status === "checking" ? (
+        <div className="flex items-center text-sm text-muted-foreground">
+          <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
+          Vérification de l'API OpenAI...
+        </div>
+      ) : status === "success" ? (
+        <Alert variant="success" className="bg-green-50 border-green-200 text-green-800">
+          <CheckCircle2 className="h-4 w-4" />
+          <AlertTitle>API OpenAI fonctionnelle</AlertTitle>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      ) : status === "error" ? (
+        <Alert variant="destructive">
+          <XCircle className="h-4 w-4" />
+          <AlertTitle>Problème avec l'API OpenAI</AlertTitle>
+          <AlertDescription>
+            {message}
+            <div className="mt-2 flex space-x-2">
+              <Button size="sm" variant="outline" onClick={checkApiStatus}>
+                Réessayer
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => (window.location.href = "/test-openai")}>
+                Diagnostic détaillé
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Statut inconnu</AlertTitle>
+          <AlertDescription>
+            Cliquez sur le bouton ci-dessous pour vérifier le statut de l'API OpenAI.
+            <div className="mt-2">
+              <Button size="sm" onClick={checkApiStatus}>
+                Vérifier l'API
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  )
+}

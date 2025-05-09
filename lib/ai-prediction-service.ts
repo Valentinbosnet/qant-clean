@@ -33,7 +33,9 @@ export async function generateAIPrediction(
 ): Promise<PredictionResult> {
   try {
     // Vérifier que la clé API OpenAI est disponible
-    if (!process.env.OPENAI_API_KEY) {
+    const apiKey = process.env.OPENAI_API_KEY
+
+    if (!apiKey) {
       console.warn("OpenAI API key is missing. Falling back to ensemble prediction algorithm.")
 
       // Si la clé API n'est pas disponible, utiliser l'algorithme d'ensemble comme solution de secours
@@ -60,7 +62,7 @@ export async function generateAIPrediction(
       throw new Error("OpenAI API key is missing. Please check your environment variables.")
     }
 
-    console.log("Generating AI prediction with OpenAI API key:", process.env.OPENAI_API_KEY ? "Available" : "Missing")
+    console.log("Generating AI prediction with OpenAI API key available:", !!apiKey)
 
     // Préparer les données historiques pour l'IA
     const historicalPrices = historicalData
@@ -101,56 +103,63 @@ Réponds uniquement avec un objet JSON valide au format suivant, sans texte supp
 }
 `
 
-    console.log("Calling OpenAI API with prompt length:", prompt.length)
-
-    // Appeler l'API OpenAI avec la clé API du serveur
-    const { text } = await generateText({
-      model: openai("gpt-4o"),
-      prompt,
-      temperature: 0.2, // Réduire la température pour des résultats plus cohérents
-      maxTokens: 2000,
-      apiKey: process.env.OPENAI_API_KEY, // Utiliser la clé API du serveur
-    })
-
-    console.log("OpenAI API response received, length:", text.length)
-
-    // Analyser la réponse JSON
-    const aiResponse: AIPredictionResponse = JSON.parse(text)
-
-    // Générer les points de prédiction
-    const predictionPoints: PredictionPoint[] = []
-
-    // Ajouter d'abord les points historiques
-    for (let i = 0; i < historicalData.length; i++) {
-      predictionPoints.push({
-        date: historicalData[i].date,
-        price: historicalData[i].price,
-        isEstimate: false,
+    try {
+      // Appeler l'API OpenAI avec la clé API du serveur
+      const { text } = await generateText({
+        model: openai("gpt-4o"),
+        prompt,
+        temperature: 0.2, // Réduire la température pour des résultats plus cohérents
+        maxTokens: 2000,
+        apiKey: apiKey, // Utiliser la clé API du serveur
       })
-    }
 
-    // Ajouter les prédictions de l'IA
-    for (const prediction of aiResponse.dailyPredictions) {
-      predictionPoints.push({
-        date: prediction.date,
-        price: prediction.price,
-        isEstimate: true,
-      })
-    }
+      console.log("OpenAI API response received, length:", text.length)
 
-    // Construire le résultat
-    return {
-      symbol,
-      algorithm: "ai",
-      points: predictionPoints,
-      metrics: {
-        confidence: aiResponse.confidence,
-        accuracy: aiResponse.confidence * 0.9, // Estimation basée sur la confiance
-      },
-      trend: aiResponse.trend,
-      shortTermTarget: aiResponse.shortTermTarget,
-      longTermTarget: aiResponse.longTermTarget,
-      aiReasoning: aiResponse.reasoning,
+      // Analyser la réponse JSON
+      const aiResponse: AIPredictionResponse = JSON.parse(text)
+
+      // Générer les points de prédiction
+      const predictionPoints: PredictionPoint[] = []
+
+      // Ajouter d'abord les points historiques
+      for (let i = 0; i < historicalData.length; i++) {
+        predictionPoints.push({
+          date: historicalData[i].date,
+          price: historicalData[i].price,
+          isEstimate: false,
+        })
+      }
+
+      // Ajouter les prédictions de l'IA
+      for (const prediction of aiResponse.dailyPredictions) {
+        predictionPoints.push({
+          date: prediction.date,
+          price: prediction.price,
+          isEstimate: true,
+        })
+      }
+
+      // Construire le résultat
+      return {
+        symbol,
+        algorithm: "ai",
+        points: predictionPoints,
+        metrics: {
+          confidence: aiResponse.confidence,
+          accuracy: aiResponse.confidence * 0.9, // Estimation basée sur la confiance
+        },
+        trend: aiResponse.trend,
+        shortTermTarget: aiResponse.shortTermTarget,
+        longTermTarget: aiResponse.longTermTarget,
+        aiReasoning: aiResponse.reasoning,
+      }
+    } catch (openaiError) {
+      console.error("Erreur spécifique à l'API OpenAI:", openaiError)
+
+      // Erreur plus détaillée pour faciliter le débogage
+      throw new Error(
+        `Erreur lors de l'appel à l'API OpenAI: ${openaiError instanceof Error ? openaiError.message : String(openaiError)}`,
+      )
     }
   } catch (error) {
     console.error("Erreur lors de la génération de prédictions IA:", error)
