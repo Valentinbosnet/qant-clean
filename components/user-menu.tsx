@@ -32,6 +32,7 @@ import {
   BarChart3,
 } from "lucide-react"
 import { useTheme } from "next-themes"
+import { PremiumStatus } from "@/components/premium-status"
 
 export function UserMenu() {
   const { user, signOut, isAuthenticated, isLoading } = useAuth()
@@ -94,10 +95,24 @@ export function UserMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={getAvatarUrl() || "/placeholder.svg"} alt={user?.email || "Utilisateur"} />
-            <AvatarFallback>{getInitials()}</AvatarFallback>
-          </Avatar>
+          {user ? (
+            <div className="flex items-center gap-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={user.user_metadata?.avatar_url || ""} alt={user?.email || "Utilisateur"} />
+                <AvatarFallback>{getInitials()}</AvatarFallback>
+              </Avatar>
+              <div className="hidden md:flex items-center gap-2">
+                <span className="text-sm">{user?.email?.split("@")[0]}</span>
+                <PremiumStatus />
+              </div>
+            </div>
+          ) : (
+            <Avatar className="h-8 w-8">
+              <AvatarFallback>
+                <User className="h-4 w-4" />
+              </AvatarFallback>
+            </Avatar>
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>

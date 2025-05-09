@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ArrowUp, ArrowDown, Minus, TrendingUp, BarChart4, RefreshCw, AlertTriangle } from "lucide-react"
+import { ArrowUp, ArrowDown, Minus, TrendingUp, BarChart4, RefreshCw, AlertTriangle, Brain } from "lucide-react"
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, ReferenceLine } from "recharts"
 import { formatPrice } from "@/lib/utils"
 import type { StockData } from "@/lib/stock-service"
@@ -15,13 +15,14 @@ import { generatePrediction, type PredictionAlgorithm, type PredictionResult } f
 interface StockPredictionProps {
   stock: StockData
   days?: number
+  defaultAlgorithm?: PredictionAlgorithm
 }
 
-export function StockPrediction({ stock, days = 30 }: StockPredictionProps) {
+export function StockPrediction({ stock, days = 30, defaultAlgorithm = "ensemble" }: StockPredictionProps) {
   const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [algorithm, setAlgorithm] = useState<PredictionAlgorithm>("ensemble")
+  const [algorithm, setAlgorithm] = useState<PredictionAlgorithm>(defaultAlgorithm)
 
   // Générer une prédiction lorsque le stock ou l'algorithme change
   useEffect(() => {
@@ -40,10 +41,15 @@ export function StockPrediction({ stock, days = 30 }: StockPredictionProps) {
       }
 
       // Générer la prédiction
-      const result = await generatePrediction(stock.symbol, stock.history, {
-        algorithm,
-        days,
-      })
+      const result = await generatePrediction(
+        stock.symbol,
+        stock.history,
+        {
+          algorithm,
+          days,
+        },
+        stock,
+      ) // Passer les données complètes de l'action pour l'IA
 
       setPredictionResult(result)
     } catch (err: any) {
@@ -117,6 +123,10 @@ export function StockPrediction({ stock, days = 30 }: StockPredictionProps) {
             <TabsTrigger value="linear">Linéaire</TabsTrigger>
             <TabsTrigger value="polynomial">Polynomial</TabsTrigger>
             <TabsTrigger value="ensemble">Ensemble</TabsTrigger>
+            <TabsTrigger value="ai" className="flex items-center">
+              <Brain className="h-3 w-3 mr-1" />
+              IA
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value={algorithm}>
@@ -218,6 +228,14 @@ export function StockPrediction({ stock, days = 30 }: StockPredictionProps) {
                     </div>
                   </div>
                 )}
+
+                {/* Afficher le raisonnement de l'IA si disponible */}
+                {algorithm === "ai" && predictionResult?.aiReasoning && (
+                  <div className="mt-4 p-3 rounded-lg bg-muted">
+                    <div className="text-sm font-medium mb-1">Analyse de l'IA</div>
+                    <p className="text-sm text-muted-foreground">{predictionResult.aiReasoning}</p>
+                  </div>
+                )}
               </>
             )}
           </TabsContent>
@@ -235,16 +253,23 @@ export function StockPrediction({ stock, days = 30 }: StockPredictionProps) {
           <div className="flex items-center">
             <BarChart4 className="h-3 w-3 mr-1" />
             <span>
-              Basé sur {stock.history.length} jours d'historique avec l'algorithme{" "}
-              {algorithm === "sma"
-                ? "SMA"
-                : algorithm === "ema"
-                  ? "EMA"
-                  : algorithm === "linear"
-                    ? "Régression linéaire"
-                    : algorithm === "polynomial"
-                      ? "Régression polynomiale"
-                      : "Ensemble"}
+              Basé sur {stock.history.length} jours d'historique avec{" "}
+              {algorithm === "ai" ? (
+                <span className="font-medium">l'intelligence artificielle</span>
+              ) : (
+                <span>
+                  l'algorithme{" "}
+                  {algorithm === "sma"
+                    ? "SMA"
+                    : algorithm === "ema"
+                      ? "EMA"
+                      : algorithm === "linear"
+                        ? "Régression linéaire"
+                        : algorithm === "polynomial"
+                          ? "Régression polynomiale"
+                          : "Ensemble"}
+                </span>
+              )}
             </span>
           </div>
         </div>

@@ -79,8 +79,8 @@ interface CacheItem {
 }
 
 const cache: Record<string, CacheItem> = {}
-// Reduced cache duration for premium subscription (1 minute)
-const CACHE_DURATION = 1 * 60 * 1000 // 1 minute in milliseconds
+// Premium plan cache duration (5 minutes)
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes in milliseconds
 
 // Helper function to check if cache is valid
 function getCachedData(key: string): any | null {
@@ -156,16 +156,17 @@ async function fetchFromAPI<T>(endpoint: string, params: Record<string, string>)
       throw new Error(data["Error Message"])
     }
 
-    // Check for rate limit information message
+    // For premium plan, we still want to check for rate limit information but handle it differently
     if (data.hasOwnProperty("Information") && data["Information"].includes("API rate limit")) {
-      console.warn(`API rate limit reached for ${params.function}:`, data["Information"])
-      // Dispatch a custom event to notify the client about the rate limit
-      throw new Error("API_RATE_LIMIT_REACHED")
+      console.warn(`API rate limit warning for ${params.function}:`, data["Information"])
+      // Log the warning but don't throw an error for premium users
+      // Instead, we'll continue with the request
     }
 
     // Check for other information messages that indicate issues
-    if (data.hasOwnProperty("Information")) {
+    if (data.hasOwnProperty("Information") && !data["Information"].includes("API rate limit")) {
       console.warn(`API information for ${params.function}:`, data["Information"])
+      // Only throw for non-rate limit information messages
       throw new Error("API_INFORMATION: " + data["Information"])
     }
 
@@ -173,6 +174,7 @@ async function fetchFromAPI<T>(endpoint: string, params: Record<string, string>)
     // but we'll still check for the note and log it without throwing an error
     if (data.hasOwnProperty("Note") && data["Note"].includes("API call frequency")) {
       console.warn(`API rate limit warning for ${params.function}:`, data["Note"])
+      // For premium users, we'll log but continue with the request
     }
 
     // Validate that we have the expected data structure
@@ -210,10 +212,16 @@ export async function getStockQuote(symbol: string): Promise<AlphaVantageQuote> 
   } catch (error: any) {
     console.error(`Error in getStockQuote for ${symbol}:`, error)
 
-    // Check for rate limit error
+    // Check for rate limit error - but we should rarely hit this with premium plan
     if (error.message === "API_RATE_LIMIT_REACHED" || (error.message && error.message.includes("API_INFORMATION"))) {
-      // Trigger a client-side event to show the rate limit message
-      // Return a special error structure
+      // For premium users, we'll try to continue with cached data if available
+      const cachedData = getCachedData(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}`)
+      if (cachedData) {
+        console.log(`Using cached data for ${symbol} due to API issue`)
+        return cachedData as AlphaVantageQuote
+      }
+
+      // If no cached data, return a special structure but don't trigger the rate limit UI
       return {
         "Global Quote": {
           "01. symbol": symbol,
@@ -226,7 +234,7 @@ export async function getStockQuote(symbol: string): Promise<AlphaVantageQuote> 
           "08. previous close": "0",
           "09. change": "0",
           "10. change percent": "0%",
-          error: "rate_limit",
+          // Don't include error: "rate_limit" for premium users
         },
       } as any
     }

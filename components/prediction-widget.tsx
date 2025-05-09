@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowUp, ArrowDown, Minus, RefreshCw, TrendingUp } from "lucide-react"
+import { ArrowUp, ArrowDown, Minus, RefreshCw, TrendingUp, Brain } from "lucide-react"
 import { formatPrice } from "@/lib/utils"
 import { getStockData, type StockData } from "@/lib/stock-service"
 import { generatePrediction, type PredictionResult } from "@/lib/prediction-service"
@@ -18,11 +18,12 @@ export function PredictionWidget() {
   const [prediction, setPrediction] = useState<PredictionResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [useAI, setUseAI] = useState(false)
 
   // Charger les données de l'action et générer une prédiction
   useEffect(() => {
     loadStockAndPrediction()
-  }, [selectedSymbol])
+  }, [selectedSymbol, useAI])
 
   const loadStockAndPrediction = async () => {
     setLoading(true)
@@ -35,10 +36,15 @@ export function PredictionWidget() {
 
       // Générer une prédiction
       if (data.history && data.history.length >= 30) {
-        const result = await generatePrediction(selectedSymbol, data.history, {
-          algorithm: "ensemble",
-          days: 30,
-        })
+        const result = await generatePrediction(
+          selectedSymbol,
+          data.history,
+          {
+            algorithm: useAI ? "ai" : "ensemble",
+            days: 30,
+          },
+          data, // Passer les données complètes pour l'IA
+        )
         setPrediction(result)
       } else {
         throw new Error("Données historiques insuffisantes")
@@ -63,9 +69,20 @@ export function PredictionWidget() {
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
           <CardTitle className="text-lg">Prédictions de marché</CardTitle>
-          <Button variant="ghost" size="icon" onClick={loadStockAndPrediction} disabled={loading}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setUseAI(!useAI)}
+              className={useAI ? "bg-primary/10" : ""}
+            >
+              <Brain className="h-4 w-4 mr-1" />
+              IA
+            </Button>
+            <Button variant="ghost" size="icon" onClick={loadStockAndPrediction} disabled={loading}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -115,7 +132,10 @@ export function PredictionWidget() {
 
             <div className="bg-muted p-4 rounded-lg">
               <div className="flex justify-between items-center mb-2">
-                <h4 className="font-medium">Prévision à 30 jours</h4>
+                <h4 className="font-medium flex items-center">
+                  {useAI && <Brain className="h-3 w-3 mr-1" />}
+                  Prévision à 30 jours
+                </h4>
                 <Badge
                   variant={
                     prediction.trend === "up" ? "success" : prediction.trend === "down" ? "destructive" : "outline"
@@ -159,6 +179,13 @@ export function PredictionWidget() {
                   </div>
                 </div>
               </div>
+
+              {/* Afficher le raisonnement de l'IA si disponible */}
+              {useAI && prediction.aiReasoning && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  <p className="line-clamp-2">{prediction.aiReasoning}</p>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center text-xs text-muted-foreground">

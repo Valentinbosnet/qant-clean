@@ -1,4 +1,5 @@
-import type { StockHistoryPoint } from "./stock-service"
+import type { StockHistoryPoint, StockData } from "./stock-service"
+import { generateAIPrediction } from "./ai-prediction-service"
 
 // Types pour les prédictions
 export interface PredictionPoint {
@@ -19,10 +20,11 @@ export interface PredictionResult {
   trend: "up" | "down" | "neutral"
   shortTermTarget?: number
   longTermTarget?: number
+  aiReasoning?: string // Nouveau champ pour le raisonnement de l'IA
 }
 
 // Algorithmes de prédiction disponibles
-export type PredictionAlgorithm = "sma" | "ema" | "linear" | "polynomial" | "ensemble"
+export type PredictionAlgorithm = "sma" | "ema" | "linear" | "polynomial" | "ensemble" | "ai"
 
 // Configuration pour les prédictions
 export interface PredictionConfig {
@@ -49,6 +51,7 @@ export async function generatePrediction(
   symbol: string,
   historicalData: StockHistoryPoint[],
   config: Partial<PredictionConfig> = {},
+  stockData?: StockData, // Ajout des données complètes de l'action pour l'IA
 ): Promise<PredictionResult> {
   // Fusionner la configuration par défaut avec celle fournie
   const fullConfig: PredictionConfig = { ...DEFAULT_CONFIG, ...config }
@@ -60,6 +63,14 @@ export async function generatePrediction(
 
   // Limiter les données historiques à la période spécifiée
   const limitedHistory = historicalData.slice(0, fullConfig.historyDays)
+
+  // Si l'algorithme est "ai", utiliser le service d'IA
+  if (fullConfig.algorithm === "ai") {
+    if (!stockData) {
+      throw new Error("Stock data is required for AI predictions")
+    }
+    return generateAIPrediction(symbol, stockData.name, stockData.price, historicalData, fullConfig.days)
+  }
 
   // Sélectionner l'algorithme approprié
   let predictionPoints: PredictionPoint[]

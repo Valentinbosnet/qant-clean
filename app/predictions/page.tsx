@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { RefreshCw, AlertTriangle, Info } from "lucide-react"
+import { RefreshCw, AlertTriangle, Info, Brain } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { StockPrediction } from "@/components/stock-prediction"
 import { getStockData, popularStocks } from "@/lib/stock-service"
 import type { StockData } from "@/lib/stock-service"
 import { formatPrice } from "@/lib/utils"
+import type { PredictionAlgorithm } from "@/lib/prediction-service"
 
 export default function PredictionsPage() {
   const [selectedSymbol, setSelectedSymbol] = useState("AAPL")
@@ -19,6 +20,7 @@ export default function PredictionsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [predictionDays, setPredictionDays] = useState(30)
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState<PredictionAlgorithm>("ensemble")
 
   // Charger les données de l'action sélectionnée
   useEffect(() => {
@@ -46,7 +48,7 @@ export default function PredictionsPage() {
         <h1 className="text-3xl font-bold text-center mb-2">Prédictions de marché</h1>
         <p className="text-muted-foreground text-center max-w-2xl">
           Analysez les tendances futures des actions grâce à nos algorithmes de prédiction basés sur l'analyse des
-          données historiques.
+          données historiques et l'intelligence artificielle.
         </p>
       </div>
 
@@ -54,8 +56,9 @@ export default function PredictionsPage() {
         <Info className="h-4 w-4" />
         <AlertTitle>Information importante</AlertTitle>
         <AlertDescription>
-          Les prédictions sont générées à partir de modèles statistiques simples et ne constituent pas des conseils
-          d'investissement. Les performances passées ne préjugent pas des performances futures.
+          Les prédictions sont générées à partir de modèles statistiques et d'intelligence artificielle, mais ne
+          constituent pas des conseils d'investissement. Les performances passées ne préjugent pas des performances
+          futures.
         </AlertDescription>
       </Alert>
 
@@ -159,29 +162,24 @@ export default function PredictionsPage() {
             </CardHeader>
           </Card>
 
-          <Tabs defaultValue="ensemble">
+          <Tabs
+            defaultValue={selectedAlgorithm}
+            onValueChange={(value) => setSelectedAlgorithm(value as PredictionAlgorithm)}
+          >
             <TabsList className="mb-4">
               <TabsTrigger value="sma">SMA</TabsTrigger>
               <TabsTrigger value="ema">EMA</TabsTrigger>
               <TabsTrigger value="linear">Linéaire</TabsTrigger>
               <TabsTrigger value="polynomial">Polynomial</TabsTrigger>
               <TabsTrigger value="ensemble">Ensemble</TabsTrigger>
+              <TabsTrigger value="ai" className="flex items-center">
+                <Brain className="h-3 w-3 mr-1" />
+                IA
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="sma">
-              <StockPrediction stock={stockData} days={predictionDays} />
-            </TabsContent>
-            <TabsContent value="ema">
-              <StockPrediction stock={stockData} days={predictionDays} />
-            </TabsContent>
-            <TabsContent value="linear">
-              <StockPrediction stock={stockData} days={predictionDays} />
-            </TabsContent>
-            <TabsContent value="polynomial">
-              <StockPrediction stock={stockData} days={predictionDays} />
-            </TabsContent>
-            <TabsContent value="ensemble">
-              <StockPrediction stock={stockData} days={predictionDays} />
+            <TabsContent value={selectedAlgorithm}>
+              <StockPrediction stock={stockData} days={predictionDays} defaultAlgorithm={selectedAlgorithm} />
             </TabsContent>
           </Tabs>
         </div>

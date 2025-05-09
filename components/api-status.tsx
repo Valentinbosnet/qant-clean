@@ -4,6 +4,9 @@ import { useState, useEffect } from "react"
 import { AlertCircle, Info } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
+// Configuration pour le plan premium
+const PREMIUM_PLAN = true // Définir sur true car l'utilisateur a un plan premium à 50$
+
 export function ApiStatus() {
   const [status, setStatus] = useState<"ok" | "rate-limited" | "error">("ok")
   const [message, setMessage] = useState<string>("")
@@ -11,8 +14,14 @@ export function ApiStatus() {
   // Listen for API rate limit events
   useEffect(() => {
     const handleRateLimit = (event: CustomEvent) => {
-      setStatus("rate-limited")
-      setMessage("Alpha Vantage API rate limit reached (25 requests per day). Using fallback data.")
+      // Si l'utilisateur a un plan premium, on affiche un message différent
+      if (PREMIUM_PLAN) {
+        setStatus("error") // Utiliser "error" au lieu de "rate-limited" pour un style différent
+        setMessage("Problème temporaire avec l'API Alpha Vantage. Utilisation des données en cache.")
+      } else {
+        setStatus("rate-limited")
+        setMessage("Alpha Vantage API rate limit reached (25 requests per day). Using fallback data.")
+      }
     }
 
     const handleApiError = (event: CustomEvent) => {
@@ -37,7 +46,7 @@ export function ApiStatus() {
       <AlertTitle>{status === "rate-limited" ? "API Rate Limit Reached" : "API Warning"}</AlertTitle>
       <AlertDescription>
         {message}
-        {status === "rate-limited" && (
+        {status === "rate-limited" && !PREMIUM_PLAN && (
           <div className="mt-2">
             <a
               href="https://www.alphavantage.co/premium/"
