@@ -580,3 +580,82 @@ export function forceRefreshStock(symbol: string): void {
 import { getCacheStats as getCacheStatistics } from "./cache-utils"
 
 export const getCacheStats = getCacheStatistics
+
+/**
+ * Interface pour les données fondamentales d'une entreprise
+ */
+export interface CompanyFundamentals {
+  symbol: string
+  name: string
+  sector: string
+  industry: string
+  marketCap: number
+  peRatio: number
+  eps: number
+  dividendYield: number
+  beta: number
+  fiftyTwoWeekHigh: number
+  fiftyTwoWeekLow: number
+  profitMargin: number
+  revenueGrowth: number
+  debtToEquity: number
+  returnOnEquity: number
+  priceToBook: number
+  priceToSales: number
+  analystRating?: string
+  analystTargetPrice?: number
+}
+
+/**
+ * Récupère les données fondamentales d'une entreprise
+ * @param symbol Symbole de l'action
+ */
+export async function getCompanyFundamentals(symbol: string): Promise<CompanyFundamentals | null> {
+  try {
+    // Vérifier le cache d'abord
+    const cacheKey = `fundamentals_${symbol}`
+    const cachedData = getFromCache<CompanyFundamentals>(cacheKey)
+    if (cachedData) {
+      return cachedData
+    }
+
+    // Récupérer les données de l'entreprise via l'API Alpha Vantage
+    const companyData = await getCompanyOverview(symbol)
+
+    if (!companyData || !companyData.Symbol) {
+      console.warn(`Données fondamentales non disponibles pour ${symbol}`)
+      return null
+    }
+
+    // Convertir les données en format standardisé
+    const fundamentals: CompanyFundamentals = {
+      symbol: companyData.Symbol,
+      name: companyData.Name || companyNames[symbol] || `Company ${symbol}`,
+      sector: companyData.Sector || "Unknown",
+      industry: companyData.Industry || "Unknown",
+      marketCap: Number.parseFloat(companyData.MarketCapitalization) || 0,
+      peRatio: Number.parseFloat(companyData.PERatio) || 0,
+      eps: Number.parseFloat(companyData.EPS) || 0,
+      dividendYield: Number.parseFloat(companyData.DividendYield) || 0,
+      beta: Number.parseFloat(companyData.Beta) || 1,
+      fiftyTwoWeekHigh: Number.parseFloat(companyData["52WeekHigh"]) || 0,
+      fiftyTwoWeekLow: Number.parseFloat(companyData["52WeekLow"]) || 0,
+      profitMargin: Number.parseFloat(companyData.ProfitMargin) || 0,
+      revenueGrowth: Number.parseFloat(companyData.QuarterlyRevenueGrowthYOY) || 0,
+      debtToEquity: Number.parseFloat(companyData.DebtToEquity) || 0,
+      returnOnEquity: Number.parseFloat(companyData.ReturnOnEquityTTM) || 0,
+      priceToBook: Number.parseFloat(companyData.PriceToBookRatio) || 0,
+      priceToSales: Number.parseFloat(companyData.PriceToSalesRatioTTM) || 0,
+      analystRating: companyData.AnalystRating,
+      analystTargetPrice: Number.parseFloat(companyData.AnalystTargetPrice) || undefined,
+    }
+
+    // Sauvegarder dans le cache
+    saveToCache<CompanyFundamentals>(cacheKey, fundamentals, COMPANY_CACHE_DURATION)
+
+    return fundamentals
+  } catch (error) {
+    console.error(`Erreur lors de la récupération des données fondamentales pour ${symbol}:`, error)
+    return null
+  }
+}

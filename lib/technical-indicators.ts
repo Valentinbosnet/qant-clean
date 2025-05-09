@@ -568,3 +568,28 @@ export function analyzeIndicators(indicators: TechnicalIndicators): {
     signals,
   }
 }
+
+/**
+ * Récupère et calcule les indicateurs techniques pour un symbole donné
+ * @param symbol Symbole de l'action
+ * @param history Données historiques (optionnel, sera récupéré si non fourni)
+ */
+export async function getTechnicalIndicators(
+  symbol: string,
+  history?: StockHistoryPoint[],
+): Promise<TechnicalIndicators> {
+  try {
+    // Si l'historique n'est pas fourni, on le récupère
+    if (!history || history.length === 0) {
+      // Importer de manière dynamique pour éviter les dépendances circulaires
+      const { getStockHistory } = await import("./stock-service")
+      history = await getStockHistory(symbol, 365)
+    }
+
+    // Calculer les indicateurs techniques
+    return calculateIndicators(history)
+  } catch (error) {
+    console.error(`Erreur lors du calcul des indicateurs techniques pour ${symbol}:`, error)
+    return {} // Retourner un objet vide en cas d'erreur
+  }
+}
