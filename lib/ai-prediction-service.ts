@@ -20,6 +20,41 @@ interface AIPredictionResponse {
 }
 
 /**
+ * Extrait le JSON d'une réponse potentiellement formatée en Markdown
+ * @param text Texte à analyser
+ * @returns JSON extrait ou le texte original si aucun bloc JSON n'est trouvé
+ */
+function extractJsonFromMarkdown(text: string): string {
+  // Rechercher un bloc JSON dans la réponse Markdown
+  const jsonRegex = /```(?:json)?\s*(\{[\s\S]*?\})\s*```/
+  const match = text.match(jsonRegex)
+
+  if (match && match[1]) {
+    console.log("JSON extrait du bloc Markdown")
+    return match[1]
+  }
+
+  // Vérifier si le texte commence directement par {
+  if (text.trim().startsWith("{") && text.trim().endsWith("}")) {
+    console.log("Le texte est déjà au format JSON")
+    return text
+  }
+
+  // Si aucun bloc JSON n'est trouvé, essayer d'extraire tout ce qui ressemble à du JSON
+  const anyJsonRegex = /(\{[\s\S]*?\})/
+  const anyMatch = text.match(anyJsonRegex)
+
+  if (anyMatch && anyMatch[1]) {
+    console.log("JSON extrait du texte (méthode alternative)")
+    return anyMatch[1]
+  }
+
+  console.log("Aucun JSON trouvé dans la réponse, retour du texte original")
+  console.log("Premiers 100 caractères de la réponse:", text.substring(0, 100))
+  return text
+}
+
+/**
  * Génère des prédictions pour une action en utilisant l'IA
  * Cette fonction doit être appelée uniquement côté serveur
  */
@@ -90,7 +125,9 @@ Génère une prédiction détaillée qui inclut:
 5. Une explication de ton raisonnement
 6. Des prédictions quotidiennes pour les ${days} prochains jours
 
-Réponds uniquement avec un objet JSON valide au format suivant, sans texte supplémentaire:
+IMPORTANT: Réponds UNIQUEMENT avec un objet JSON brut sans utiliser de délimiteurs de bloc de code comme \`\`\`json ou \`\`\`.
+N'utilise pas de Markdown. Réponds directement avec l'objet JSON au format suivant:
+
 {
   "trend": "up|down|neutral",
   "shortTermTarget": number,
@@ -114,44 +151,57 @@ Réponds uniquement avec un objet JSON valide au format suivant, sans texte supp
       })
 
       console.log("OpenAI API response received, length:", text.length)
+      console.log("OpenAI API response starts with:", text.substring(0, 50))
 
-      // Analyser la réponse JSON
-      const aiResponse: AIPredictionResponse = JSON.parse(text)
+      // Extraire le JSON de la réponse Markdown si nécessaire
+      const jsonText = extractJsonFromMarkdown(text)
+      console.log("Extracted JSON starts with:", jsonText.substring(0, 50))
 
-      // Générer les points de prédiction
-      const predictionPoints: PredictionPoint[] = []
+      try {
+        // Analyser la réponse JSON
+        const aiResponse: AIPredictionResponse = JSON.parse(jsonText)
 
-      // Ajouter d'abord les points historiques
-      for (let i = 0; i < historicalData.length; i++) {
-        predictionPoints.push({
-          date: historicalData[i].date,
-          price: historicalData[i].price,
-          isEstimate: false,
-        })
-      }
+        // Générer les points de prédiction
+        const predictionPoints: PredictionPoint[] = []
 
-      // Ajouter les prédictions de l'IA
-      for (const prediction of aiResponse.dailyPredictions) {
-        predictionPoints.push({
-          date: prediction.date,
-          price: prediction.price,
-          isEstimate: true,
-        })
-      }
+        // Ajouter d'abord les points historiques
+        for (let i = 0; i < historicalData.length; i++) {
+          predictionPoints.push({
+            date: historicalData[i].date,
+            price: historicalData[i].price,
+            isEstimate: false,
+          })
+        }
 
-      // Construire le résultat
-      return {
-        symbol,
-        algorithm: "ai",
-        points: predictionPoints,
-        metrics: {
-          confidence: aiResponse.confidence,
-          accuracy: aiResponse.confidence * 0.9, // Estimation basée sur la confiance
-        },
-        trend: aiResponse.trend,
-        shortTermTarget: aiResponse.shortTermTarget,
-        longTermTarget: aiResponse.longTermTarget,
-        aiReasoning: aiResponse.reasoning,
+        // Ajouter les prédictions de l'IA
+        for (const prediction of aiResponse.dailyPredictions) {
+          predictionPoints.push({
+            date: prediction.date,
+            price: prediction.price,
+            isEstimate: true,
+          })
+        }
+
+        // Construire le résultat
+        return {
+          symbol,
+          algorithm: "ai",
+          points: predictionPoints,
+          metrics: {
+            confidence: aiResponse.confidence,
+            accuracy: aiResponse.confidence * 0.9, // Estimation basée sur la confiance
+          },
+          trend: aiResponse.trend,
+          shortTermTarget: aiResponse.shortTermTarget,
+          longTermTarget: aiResponse.longTermTarget,
+          aiReasoning: aiResponse.reasoning,
+        }
+      } catch (jsonError) {
+        console.error("Erreur lors de l'analyse JSON:", jsonError)
+        console.error("Contenu brut de la réponse:", text)
+        throw new Error(
+          `Erreur lors de l'analyse JSON: ${jsonError instanceof Error ? jsonError.message : String(jsonError)}`,
+        )
       }
     } catch (openaiError) {
       console.error("Erreur spécifique à l'API OpenAI:", openaiError)
