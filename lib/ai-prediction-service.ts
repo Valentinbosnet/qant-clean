@@ -66,14 +66,17 @@ export async function generateAIPrediction(
   historicalData: StockHistoryPoint[],
   days = 30,
   stock?: any,
+  providedApiKey?: string, // Nouveau paramètre pour accepter une clé API fournie
 ): Promise<PredictionResult> {
   try {
-    // Vérifier que la clé API OpenAI est disponible
-    // Utiliser directement la clé API de l'environnement serveur
-    const apiKey = serverEnv.OPENAI_API_KEY
+    // Utiliser la clé API fournie ou celle de l'environnement
+    const apiKey = providedApiKey || serverEnv.OPENAI_API_KEY
 
-    // Log pour le débogage (ne pas inclure la clé complète en production)
-    console.log("OpenAI API key status:", apiKey ? "Available (length: " + apiKey.length + ")" : "Missing")
+    // Log détaillé pour le débogage (sécurisé)
+    console.log(
+      "OpenAI API key status:",
+      apiKey ? `Available (length: ${apiKey.length}, starts with: ${apiKey.substring(0, 3)}...)` : "Missing",
+    )
 
     if (!apiKey) {
       console.warn("OpenAI API key is missing. Falling back to ensemble prediction algorithm.")
@@ -102,7 +105,7 @@ export async function generateAIPrediction(
       throw new Error("OpenAI API key is missing. Please check your environment variables.")
     }
 
-    console.log("Generating AI prediction with OpenAI API key available:", !!apiKey)
+    console.log("Generating AI prediction with OpenAI API key available")
 
     // Préparer les données historiques pour l'IA
     const historicalPrices = historicalData
@@ -146,13 +149,13 @@ N'utilise pas de Markdown. Réponds directement avec l'objet JSON au format suiv
 `
 
     try {
-      // Appeler l'API OpenAI avec la clé API du serveur
+      // Appeler l'API OpenAI avec la clé API explicitement fournie
       const { text } = await generateText({
         model: openai("gpt-4o"),
         prompt,
         temperature: 0.2, // Réduire la température pour des résultats plus cohérents
         maxTokens: 2000,
-        apiKey, // Utiliser la clé API du serveur
+        apiKey, // Utiliser la clé API fournie
       })
 
       console.log("OpenAI API response received, length:", text.length)
