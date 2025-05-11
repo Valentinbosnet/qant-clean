@@ -17,6 +17,18 @@ export const serverEnv = {
 
   // Autres configurations serveur
   NODE_ENV: process.env.NODE_ENV || "development",
+
+  // Ajouter un log pour déboguer les variables d'environnement au démarrage du serveur
+  logEnvStatus: () => {
+    console.log("Environment configuration:")
+    console.log(
+      "- OPENAI_API_KEY:",
+      process.env.OPENAI_API_KEY ? "Set (length: " + process.env.OPENAI_API_KEY.length + ")" : "Not set",
+    )
+    console.log("- ALPHA_VANTAGE_API_KEY:", process.env.ALPHA_VANTAGE_API_KEY ? "Set" : "Not set")
+    console.log("- SUPABASE_URL:", process.env.SUPABASE_URL ? "Set" : "Not set")
+    console.log("- NODE_ENV:", process.env.NODE_ENV || "development")
+  },
 }
 
 // Variables d'environnement côté client (préfixées par NEXT_PUBLIC_)
@@ -49,4 +61,9 @@ export function getApiStatus() {
     hasOpenAiKey: false, // Sera déterminé par une route API
     hasAlphaVantageKey: false, // Sera déterminé par une route API
   }
+}
+
+// Initialiser l'environnement au démarrage si en mode serveur
+if (typeof window === "undefined") {
+  serverEnv.logEnvStatus()
 }

@@ -18,7 +18,6 @@ import {
   Eye,
   Globe,
   MessageCircle,
-  Key,
   Info,
   Zap,
 } from "lucide-react"
@@ -67,6 +66,7 @@ export function EnhancedStockPrediction({
   const [showAnalysisPanel, setShowAnalysisPanel] = useState(false)
   const [apiStatus, setApiStatus] = useState<{ hasOpenAiKey: boolean }>({ hasOpenAiKey: false })
   const [fallbackMode, setFallbackMode] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
 
   // Charger le statut de l'API OpenAI
   useEffect(() => {
@@ -88,7 +88,7 @@ export function EnhancedStockPrediction({
   // Générer une prédiction lorsque le stock ou l'algorithme change
   useEffect(() => {
     generatePredictionData()
-  }, [stock.symbol, algorithm])
+  }, [stock.symbol, algorithm, retryCount])
 
   // Fonction pour générer les données de prédiction
   const generatePredictionData = async () => {
@@ -99,38 +99,69 @@ export function EnhancedStockPrediction({
 
     try {
       // Vérifier que nous avons suffisamment de données historiques
-      if (!stock.history || stock.history.length < 30) {
-        throw new Error("Données historiques insuffisantes pour générer une prédiction")
+      if (!stock.history || stock.history.length < 20) {
+        setError("Données historiques insuffisantes pour générer une prédiction")
+        return
       }
 
-      // Appeler la route API enrichie
-      try {
-        // Appeler la route API enrichie
-        const response = await fetch(`/api/predictions/ai-enhanced`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            symbol: stock.symbol,
-            days,
-          }),
-        })
+      // Appeler la route API enrichie avec logging amélioré
+      console.log(`Calling enhanced prediction API for ${stock.symbol} (${days} days)`)
 
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Erreur lors de la génération de prédictions IA enrichies")
-        }
+      const startTime = Date.now()
+      const response = await fetch(`/api/predictions/ai-enhanced`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          symbol: stock.symbol,
+          days,
+        }),
+        // Augmenter le timeout pour les prédictions complexes
+        cache: "no-store",
+      })
 
-        const enhancedPrediction = await response.json()
-        setPredictionResult(enhancedPrediction)
-      } catch (enhancedError) {
-        console.error("Erreur lors de l'appel à l'API de prédiction IA enrichie:", enhancedError)
-        throw enhancedError
+      const requestTime = Date.now() - startTime
+      console.log(`API request completed in ${requestTime}ms`)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("API response error:", errorData)
+        throw new Error(errorData.error || `Erreur serveur: ${response.status}`)
+      }
+
+      const enhancedPrediction = await response.json()
+      console.log("Received prediction data - Algorithm:", enhancedPrediction.algorithm)
+      setPredictionResult(enhancedPrediction)
+
+      // Détection plus précise du mode de repli
+      if (
+        enhancedPrediction.algorithm === "ai-fallback" ||
+        !apiStatus.hasOpenAiKey ||
+        (enhancedPrediction.aiReasoning && enhancedPrediction.aiReasoning.includes("alternatif"))
+      ) {
+        setFallbackMode(true)
+        console.log("Prediction generated using fallback mode")
+      } else {
+        setFallbackMode(false)
+        console.log("Prediction generated using AI mode")
       }
     } catch (err: any) {
-      console.error("Erreur lors de la génération de la prédiction:", err)
-      setError(err.message || "Erreur lors de la génération de la prédiction")
+      console.error("Error generating prediction:", err)
+
+      // Message d'erreur plus convivial
+      if (err instanceof Error) {
+        if (err.message.includes("OpenAI API key")) {
+          setError("La clé API OpenAI n'est pas configurée ou est invalide. Utilisation du mode alternatif.")
+          setFallbackMode(true)
+        } else if (err.message.includes("timeout") || err.message.includes("aborted")) {
+          setError("La requête a pris trop de temps. Veuillez réessayer ou utiliser une prédiction plus courte.")
+        } else {
+          setError(`Erreur: ${err.message}`)
+        }
+      } else {
+        setError("Une erreur inattendue s'est produite. Veuillez réessayer.")
+      }
     } finally {
       setLoading(false)
     }
@@ -218,34 +249,14 @@ export function EnhancedStockPrediction({
       </CardHeader>
 
       <CardContent>
-        {algorithm === "ai" && !apiStatus.hasOpenAiKey && (
-          <div className="mb-4">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-yellow-800 text-sm flex items-start">
-              <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-medium">Clé API OpenAI non configurée</p>
-                <p className="mt-1">
-                  Les prédictions IA utiliseront l'algorithme d'ensemble comme solution de secours. Pour utiliser les
-                  prédictions basées sur l'IA, veuillez{" "}
-                  <a href="/settings/api" className="underline font-medium">
-                    configurer votre clé API
-                  </a>
-                  .
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {fallbackMode && algorithm === "ai" && (
+        {fallbackMode && (
           <div className="mb-4">
             <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-blue-800 text-sm flex items-start">
               <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
               <div>
-                <p className="font-medium">Mode de secours activé</p>
+                <p className="font-medium">Mode alternatif activé</p>
                 <p className="mt-1">
-                  L'algorithme d'ensemble est utilisé comme solution de secours car la clé API OpenAI n'est pas
-                  disponible. Les résultats peuvent différer des prédictions IA complètes.
+                  Les prédictions utilisent notre algorithme avancé basé sur l'analyse technique et fondamentale.
                 </p>
               </div>
             </div>
@@ -298,17 +309,10 @@ export function EnhancedStockPrediction({
             <AlertTriangle className="h-10 w-10 text-yellow-500 mb-2" />
             <p className="text-muted-foreground">{error}</p>
             <div className="flex gap-2 mt-4">
-              <Button variant="outline" size="sm" onClick={generatePredictionData}>
+              <Button variant="outline" size="sm" onClick={() => setRetryCount(retryCount + 1)}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Réessayer
               </Button>
-
-              {error.includes("Clé API") && (
-                <Button variant="default" size="sm" onClick={() => (window.location.href = "/settings/api")}>
-                  <Key className="h-4 w-4 mr-2" />
-                  Configurer les API
-                </Button>
-              )}
             </div>
           </div>
         ) : (

@@ -11,6 +11,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Symbol is required" }, { status: 400 })
     }
 
+    // Vérifier que la clé API est disponible
+    const apiKey = serverEnv.OPENAI_API_KEY
+    console.log(
+      "API Key Status:",
+      apiKey ? "Available (starting with " + apiKey.substring(0, 3) + "...)" : "Not available",
+    )
+
     // Récupérer les données de l'action
     const stockData = await getStockData(symbol)
 
@@ -18,14 +25,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Stock data not found" }, { status: 404 })
     }
 
-    // Générer la prédiction enrichie
+    // Générer la prédiction enrichie en passant explicitement la clé API
     const prediction = await generateEnhancedAIPrediction(
       symbol,
       stockData.name,
       stockData.price,
       stockData.history,
       days,
-      serverEnv.OPENAI_API_KEY, // Passer la clé API (peut être undefined)
+      apiKey, // Passer explicitement la clé API
     )
 
     return NextResponse.json(prediction)

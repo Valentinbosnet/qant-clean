@@ -86,9 +86,20 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_favorites_table: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
+      [_ in never]: never
+    }
+  }
+  storage: {
+    Buckets: {
+      [_ in never]: never
+    }
+    Objects: {
       [_ in never]: never
     }
   }

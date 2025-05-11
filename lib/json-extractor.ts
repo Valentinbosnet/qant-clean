@@ -1,34 +1,94 @@
 /**
- * Extrait le JSON d'une réponse potentiellement formatée en Markdown
- * @param text Texte à analyser
- * @returns JSON extrait ou le texte original si aucun bloc JSON n'est trouvé
+ * Fonction améliorée pour extraire le JSON d'une réponse Markdown
+ * Gère plusieurs cas d'extraction et formats différents
  */
 export function extractJsonFromMarkdown(text: string): string {
-  // Rechercher un bloc JSON dans la réponse Markdown
-  const jsonRegex = /```(?:json)?\s*(\{[\s\S]*?\})\s*```/
-  const match = text.match(jsonRegex)
+  if (!text) return "{}"
 
-  if (match && match[1]) {
-    console.log("JSON extrait du bloc Markdown")
-    return match[1]
-  }
+  console.log("Extracting JSON from text of length:", text.length)
 
-  // Vérifier si le texte commence directement par {
-  if (text.trim().startsWith("{") && text.trim().endsWith("}")) {
-    console.log("Le texte est déjà au format JSON")
+  // Cas 1: Si le texte est déjà un JSON valide, le retourner directement
+  try {
+    JSON.parse(text)
+    console.log("Text is already valid JSON")
     return text
+  } catch (e) {
+    // Continuer avec d'autres méthodes d'extraction
   }
 
-  // Si aucun bloc JSON n'est trouvé, essayer d'extraire tout ce qui ressemble à du JSON
-  const anyJsonRegex = /(\{[\s\S]*?\})/
-  const anyMatch = text.match(anyJsonRegex)
+  // Cas 2: Rechercher le bloc de code JSON standard
+  const jsonBlockRegex = /```(?:json)?\s*([\s\S]*?)```/
+  const jsonBlockMatch = text.match(jsonBlockRegex)
 
-  if (anyMatch && anyMatch[1]) {
-    console.log("JSON extrait du texte (méthode alternative)")
-    return anyMatch[1]
+  if (jsonBlockMatch && jsonBlockMatch[1]) {
+    try {
+      const extracted = jsonBlockMatch[1].trim()
+      // Vérifier si c'est un JSON valide
+      JSON.parse(extracted)
+      console.log("Extracted JSON from code block")
+      return extracted
+    } catch (e) {
+      console.log("Extracted code block is not valid JSON")
+    }
   }
 
-  console.log("Aucun JSON trouvé dans la réponse, retour du texte original")
-  console.log("Premiers 100 caractères de la réponse:", text.substring(0, 100))
-  return text
+  // Cas 3: Rechercher un objet JSON complet
+  const jsonObjectRegex = /(\{[\s\S]*\})/
+  const jsonObjectMatch = text.match(jsonObjectRegex)
+
+  if (jsonObjectMatch && jsonObjectMatch[1]) {
+    try {
+      const extracted = jsonObjectMatch[1].trim()
+      // Vérifier si c'est un JSON valide
+      JSON.parse(extracted)
+      console.log("Extracted JSON object")
+      return extracted
+    } catch (e) {
+      console.log("Extracted object is not valid JSON")
+    }
+  }
+
+  // Cas 4: Extraction avancée avec recherche de début et fin d'accolades
+  try {
+    const startIndex = text.indexOf("{")
+    const endIndex = text.lastIndexOf("}")
+
+    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+      const extracted = text.substring(startIndex, endIndex + 1)
+      // Vérifier si c'est un JSON valide
+      JSON.parse(extracted)
+      console.log("Extracted JSON with custom bounds")
+      return extracted
+    }
+  } catch (e) {
+    console.log("Custom extraction failed")
+  }
+
+  // Cas 5: Tentative de nettoyage et extraction
+  try {
+    // Supprimer les lignes qui ne commencent pas par des éléments JSON valides
+    const cleanedLines = text
+      .split("\n")
+      .filter((line) => /^\s*["{[\d]/.test(line) || /^\s*\}/.test(line))
+      .join("\n")
+
+    if (cleanedLines) {
+      const startIndex = cleanedLines.indexOf("{")
+      const endIndex = cleanedLines.lastIndexOf("}")
+
+      if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+        const extracted = cleanedLines.substring(startIndex, endIndex + 1)
+        // Vérifier si c'est un JSON valide
+        JSON.parse(extracted)
+        console.log("Extracted JSON after cleaning")
+        return extracted
+      }
+    }
+  } catch (e) {
+    console.log("Cleaned extraction failed")
+  }
+
+  // Si toutes les tentatives échouent, renvoyer un JSON vide
+  console.warn("All JSON extraction methods failed, returning empty object")
+  return "{}"
 }
