@@ -3,12 +3,17 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { SectorAlertsPanel } from "@/components/sector-alerts-panel"
+import { SectorAlertsIndicator } from "@/components/sector-alerts-indicator"
+import Link from "next/link"
+import { ArrowRight } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { RefreshCw, AlertTriangle, Info, Zap } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { EnhancedStockPrediction } from "@/components/enhanced-stock-prediction"
 import { PredictionAlerts } from "@/components/prediction-alerts"
+import { SectorsDashboard } from "@/components/sectors-dashboard"
 import { getStockData, popularStocks } from "@/lib/stock-service"
 import type { StockData } from "@/lib/stock-service"
 import { formatPrice } from "@/lib/utils"
@@ -78,13 +83,15 @@ export default function PredictionsPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col items-center mb-8">
-        <h1 className="text-3xl font-bold text-center mb-2">Prédictions de marché</h1>
-        <p className="text-muted-foreground text-center max-w-2xl">
-          Analysez les tendances futures des actions grâce à nos algorithmes de prédiction basés sur l'analyse des
-          données historiques et l'intelligence artificielle.
-        </p>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Prédictions</h1>
+        <div className="flex items-center gap-3">
+          <SectorAlertsIndicator variant="button" />
+          {/* Autres boutons existants... */}
+        </div>
       </div>
+
+      {/* Contenu existant... */}
 
       <Alert className="mb-6">
         <Info className="h-4 w-4" />
@@ -96,89 +103,89 @@ export default function PredictionsPage() {
         </AlertDescription>
       </Alert>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Paramètres de prédiction</CardTitle>
-          <CardDescription>Sélectionnez une action et configurez les paramètres de prédiction</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-sm font-medium mb-1 block">Action</label>
-              <Select value={selectedSymbol} onValueChange={setSelectedSymbol}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choisir une action" />
-                </SelectTrigger>
-                <SelectContent>
-                  {popularStocks.map((symbol) => (
-                    <SelectItem key={symbol} value={symbol}>
-                      {symbol}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+        <div className="lg:col-span-2">
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Paramètres de prédiction</CardTitle>
+              <CardDescription>Sélectionnez une action et configurez les paramètres de prédiction</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Action</label>
+                  <Select value={selectedSymbol} onValueChange={setSelectedSymbol}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choisir une action" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {popularStocks.map((symbol) => (
+                        <SelectItem key={symbol} value={symbol}>
+                          {symbol}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div>
-              <label className="text-sm font-medium mb-1 block">Horizon de prédiction</label>
-              <Select
-                value={predictionDays.toString()}
-                onValueChange={(value) => setPredictionDays(Number.parseInt(value))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Nombre de jours" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7">7 jours</SelectItem>
-                  <SelectItem value="14">14 jours</SelectItem>
-                  <SelectItem value="30">30 jours</SelectItem>
-                  <SelectItem value="60">60 jours</SelectItem>
-                  <SelectItem value="90">90 jours</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Horizon de prédiction</label>
+                  <Select
+                    value={predictionDays.toString()}
+                    onValueChange={(value) => setPredictionDays(Number.parseInt(value))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Nombre de jours" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7">7 jours</SelectItem>
+                      <SelectItem value="14">14 jours</SelectItem>
+                      <SelectItem value="30">30 jours</SelectItem>
+                      <SelectItem value="60">60 jours</SelectItem>
+                      <SelectItem value="90">90 jours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="flex items-end">
-              <Button onClick={loadStockAndPrediction} disabled={loading} className="w-full">
-                {loading ? (
-                  <>
-                    <span className="animate-spin mr-2">⟳</span>
-                    Chargement...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Actualiser
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {error ? (
-        <Alert variant="destructive" className="mb-6">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Erreur</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : loading ? (
-        <Card>
-          <CardContent className="py-6">
-            <div className="space-y-4">
-              <Skeleton className="h-8 w-1/3" />
-              <Skeleton className="h-[400px] w-full" />
-              <div className="grid grid-cols-2 gap-4">
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-20 w-full" />
+                <div className="flex items-end">
+                  <Button onClick={loadStockAndPrediction} disabled={loading} className="w-full">
+                    {loading ? (
+                      <>
+                        <span className="animate-spin mr-2">⟳</span>
+                        Chargement...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Actualiser
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : stockData ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+            </CardContent>
+          </Card>
+
+          {error ? (
+            <Alert variant="destructive" className="mb-6">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Erreur</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : loading ? (
+            <Card>
+              <CardContent className="py-6">
+                <div className="space-y-4">
+                  <Skeleton className="h-8 w-1/3" />
+                  <Skeleton className="h-[400px] w-full" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="h-20 w-full" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : stockData ? (
             <div className="space-y-6">
               <Card>
                 <CardHeader>
@@ -209,19 +216,62 @@ export default function PredictionsPage() {
 
               <EnhancedStockPrediction stock={stockData} days={predictionDays} defaultAlgorithm="ai-enhanced" />
             </div>
-          </div>
-
-          <div>
-            <PredictionAlerts stock={stockData} prediction={predictionResult} />
-          </div>
+          ) : (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">Sélectionnez une action pour voir les prédictions</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
-      ) : (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">Sélectionnez une action pour voir les prédictions</p>
-          </CardContent>
-        </Card>
-      )}
+
+        <div className="space-y-6">
+          <SectorAlertsPanel limit={3} />
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Alertes Sectorielles</CardTitle>
+              <CardDescription>
+                Restez informé des changements importants dans les indicateurs macroéconomiques sectoriels
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Configurez vos préférences d'alertes pour être notifié des changements significatifs qui pourraient
+                affecter vos investissements sectoriels.
+              </p>
+              <Button asChild className="w-full">
+                <Link href="/alerts/sectors">
+                  Gérer les alertes sectorielles
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {stockData && predictionResult && <PredictionAlerts stock={stockData} prediction={predictionResult} />}
+
+          <SectorsDashboard />
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Analyses sectorielles</CardTitle>
+              <CardDescription>Explorez les prédictions par secteur d'activité</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button variant="outline" className="w-full" asChild>
+                <a href="/predictions/sectors-comparison">Comparer les secteurs</a>
+              </Button>
+              <Button variant="outline" className="w-full" asChild>
+                <a href="/predictions/sector">Analyse sectorielle détaillée</a>
+              </Button>
+              <Button variant="outline" className="w-full" asChild>
+                <a href="/predictions/advanced">Prédictions avancées</a>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }
