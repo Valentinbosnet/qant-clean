@@ -83,7 +83,7 @@ const cache: Record<string, CacheItem> = {}
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes in milliseconds
 
 // Helper function to check if cache is valid
-function getCachedData(key: string): any | null {
+async function getCachedData(key: string): Promise<any | null> {
   const item = cache[key]
   if (!item) return null
 
@@ -98,15 +98,46 @@ function getCachedData(key: string): any | null {
 }
 
 // Helper function to set cache
-function setCachedData(key: string, data: any): void {
+async function setCachedData(key: string, data: any): Promise<void> {
   cache[key] = {
     data,
     timestamp: Date.now(),
   }
 }
 
-// Base API function with caching
-async function fetchFromAPI<T>(endpoint: string, params: Record<string, string>): Promise<T> {
+// Flag to track if we've detected API rate limiting
+let isRateLimited = false
+let rateLimitDetectedTime = 0
+const RATE_LIMIT_DURATION = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
+
+// Helper function to check if we're currently rate limited
+async function checkRateLimit(): Promise<boolean> {
+  if (!isRateLimited) return false
+
+  const now = Date.now()
+  if (now - rateLimitDetectedTime > RATE_LIMIT_DURATION) {
+    // Rate limit duration has passed, reset the flag
+    isRateLimited = false
+    return false
+  }
+
+  return true
+}
+
+// Helper function to set rate limit flag
+async function setRateLimit(): Promise<void> {
+  isRateLimited = true
+  rateLimitDetectedTime = Date.now()
+  console.warn("API rate limit detected, switching to fallback mode for 24 hours")
+}
+
+// Base API function with caching and rate limit handling
+async function fetchFromAPI<T>(endpoint: string, params: Record<string, string>, forceFallback = false): Promise<T> {
+  // If we're rate limited or forceFallback is true, immediately return null to trigger fallback
+  if ((await checkRateLimit()) || forceFallback) {
+    return null as any
+  }
+
   // Get API key from server environment variable (not exposed to client)
   const apiKey = process.env.ALPHA_VANTAGE_API_KEY
 
@@ -127,7 +158,7 @@ async function fetchFromAPI<T>(endpoint: string, params: Record<string, string>)
   const cacheKey = url.toString()
 
   // Check cache first
-  const cachedData = getCachedData(cacheKey)
+  const cachedData = await getCachedData(cacheKey)
   if (cachedData) {
     return cachedData as T
   }
@@ -147,20 +178,20 @@ async function fetchFromAPI<T>(endpoint: string, params: Record<string, string>)
 
     const data = await response.json()
 
-    // Log the response structure for debugging
-    console.log(`API response structure for ${params.function}:`, Object.keys(data))
+    // Check for rate limit messages
+    if (
+      (data.Information && data.Information.includes("API rate limit")) ||
+      (data.Information && data.Information.includes("API key"))
+    ) {
+      console.warn(`API rate limit detected for ${params.function}:`, data.Information)
+      await setRateLimit() // Set the rate limit flag
+      return null as any // Return null to trigger fallback
+    }
 
     // Check for API error messages
     if (data.hasOwnProperty("Error Message")) {
       console.error(`API error for ${params.function}:`, data["Error Message"])
       throw new Error(data["Error Message"])
-    }
-
-    // For premium plan, we still want to check for rate limit information but handle it differently
-    if (data.hasOwnProperty("Information") && data["Information"].includes("API rate limit")) {
-      console.warn(`API rate limit warning for ${params.function}:`, data["Information"])
-      // Log the warning but don't throw an error for premium users
-      // Instead, we'll continue with the request
     }
 
     // Check for other information messages that indicate issues
@@ -185,57 +216,178 @@ async function fetchFromAPI<T>(endpoint: string, params: Record<string, string>)
     }
 
     // Cache the successful response
-    setCachedData(cacheKey, data)
+    await setCachedData(cacheKey, data)
 
     return data as T
   } catch (error) {
     console.error(`Alpha Vantage API error for ${params.function} (${params.symbol || ""}):`, error)
-    throw error
+
+    // If the error message contains rate limit information, set the rate limit flag
+    if (
+      error instanceof Error &&
+      (error.message.includes("API rate limit") ||
+        error.message.includes("API key") ||
+        error.message.includes("API_INFORMATION"))
+    ) {
+      await setRateLimit()
+    }
+
+    return null as any // Return null to trigger fallback
+  }
+}
+
+// Helper function to generate mock time series data
+async function generateMockTimeSeries(symbol: string, outputSize: string): Promise<AlphaVantageTimeSeries> {
+  const today = new Date()
+  const mockData: any = {
+    "Meta Data": {
+      "1. Information": "Mock Daily Time Series",
+      "2. Symbol": symbol,
+      "3. Last Refreshed": today.toISOString().split("T")[0],
+      "4. Output Size": outputSize,
+      "5. Time Zone": "US/Eastern",
+    },
+    "Time Series (Daily)": {},
+  }
+
+  // Generate 30 days of mock data
+  for (let i = 0; i < 30; i++) {
+    const date = new Date(today)
+    date.setDate(today.getDate() - i)
+    const dateStr = date.toISOString().split("T")[0]
+
+    // Base price on symbol's first character code for consistency
+    const basePrice = 100 + (symbol.charCodeAt(0) % 26) * 10
+    const variance = (i % 5) * 2
+
+    mockData["Time Series (Daily)"][dateStr] = {
+      "1. open": (basePrice - variance).toFixed(2),
+      "2. high": (basePrice + 5).toFixed(2),
+      "3. low": (basePrice - 5).toFixed(2),
+      "4. close": (basePrice + variance).toFixed(2),
+      "5. volume": "1000000",
+    }
+  }
+
+  return mockData
+}
+
+// Helper function to generate mock intraday data
+async function generateMockIntraday(
+  symbol: string,
+  interval: string,
+  outputSize: string,
+): Promise<AlphaVantageIntraday> {
+  const now = new Date()
+  const mockData: any = {
+    "Meta Data": {
+      "1. Information": "Mock Intraday Time Series",
+      "2. Symbol": symbol,
+      "3. Last Refreshed": now.toISOString(),
+      "4. Interval": interval,
+      "5. Output Size": outputSize,
+      "6. Time Zone": "US/Eastern",
+    },
+    "Time Series (5min)": {},
+  }
+
+  // Generate 12 intervals (1 hour) of mock data
+  for (let i = 0; i < 12; i++) {
+    const timestamp = new Date(now)
+    timestamp.setMinutes(now.getMinutes() - i * 5)
+    const timestampStr = timestamp.toISOString().replace(/\.\d+Z$/, "")
+
+    // Base price on symbol's first character code for consistency
+    const basePrice = 100 + (symbol.charCodeAt(0) % 26) * 10
+    const variance = (i % 5) * 0.5
+
+    mockData["Time Series (5min)"][timestampStr] = {
+      "1. open": (basePrice - variance).toFixed(2),
+      "2. high": (basePrice + 1).toFixed(2),
+      "3. low": (basePrice - 1).toFixed(2),
+      "4. close": (basePrice + variance).toFixed(2),
+      "5. volume": "50000",
+    }
+  }
+
+  return mockData
+}
+
+// Helper function to generate mock sector performance data
+async function generateMockSectorPerformance(): Promise<any> {
+  return {
+    "Meta Data": {
+      Information: "Mock Sector Performance",
+      "Last Refreshed": new Date().toISOString(),
+    },
+    "Rank A: Real-Time Performance": {
+      Technology: "0.00%",
+      "Consumer Cyclical": "0.00%",
+      "Financial Services": "0.00%",
+      Healthcare: "0.00%",
+      "Communication Services": "0.00%",
+      Energy: "0.00%",
+      Industrials: "0.00%",
+      "Consumer Defensive": "0.00%",
+      Utilities: "0.00%",
+      "Basic Materials": "0.00%",
+      "Real Estate": "0.00%",
+    },
   }
 }
 
 // Server action to get stock quote
-export async function getStockQuote(symbol: string) {
-  const apiKey = process.env.ALPHA_VANTAGE_API_KEY
-
-  if (!apiKey) {
-    console.error("Clé API Alpha Vantage non définie")
-    throw new Error("API_KEY_MISSING")
-  }
-
+export async function getStockQuote(symbol: string): Promise<AlphaVantageQuote> {
   try {
-    const response = await fetch(
-      `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`,
-    )
+    const data = await fetchFromAPI<any>("query", {
+      function: "GLOBAL_QUOTE",
+      symbol,
+    })
 
-    const data = await response.json()
-
-    // Vérifier si la réponse contient un message d'erreur concernant la limite de requêtes
-    if (data.Information && data.Information.includes("API key")) {
-      console.error("Problème avec la clé API Alpha Vantage:", data.Information)
-      throw new Error("API_KEY_LIMIT")
-    }
-
-    // Vérifier si la réponse contient les données attendues
-    if (!data["Global Quote"] || Object.keys(data["Global Quote"]).length === 0) {
-      console.error("Réponse API inattendue:", data)
-      throw new Error("INVALID_RESPONSE")
-    }
-
-    // Traitement normal des données
-    // ...
-
-    return data
-  } catch (error) {
-    console.error(`Erreur lors de la récupération des données pour ${symbol}:`, error)
-
-    if (error instanceof Error) {
-      if (["API_KEY_MISSING", "API_KEY_LIMIT", "INVALID_RESPONSE"].includes(error.message)) {
-        throw error
+    // If data is null (due to rate limiting), return a mock response
+    if (!data) {
+      console.log(`Using mock data for ${symbol} due to rate limiting`)
+      return {
+        "Global Quote": {
+          "01. symbol": symbol,
+          "02. open": "0",
+          "03. high": "0",
+          "04. low": "0",
+          "05. price": "0",
+          "06. volume": "0",
+          "07. latest trading day": new Date().toISOString().split("T")[0],
+          "08. previous close": "0",
+          "09. change": "0",
+          "10. change percent": "0%",
+        },
       }
     }
 
-    throw new Error("FETCH_ERROR")
+    // Check if the response has the expected structure
+    if (!data || !data["Global Quote"] || Object.keys(data["Global Quote"]).length === 0) {
+      console.error(`Invalid quote response format for ${symbol}:`, data)
+      throw new Error(`Invalid quote data for ${symbol}`)
+    }
+
+    return data as AlphaVantageQuote
+  } catch (error: any) {
+    console.error(`Error in getStockQuote for ${symbol}:`, error)
+
+    // Return a minimal valid structure to prevent client-side errors
+    return {
+      "Global Quote": {
+        "01. symbol": symbol,
+        "02. open": "0",
+        "03. high": "0",
+        "04. low": "0",
+        "05. price": "0",
+        "06. volume": "0",
+        "07. latest trading day": new Date().toISOString().split("T")[0],
+        "08. previous close": "0",
+        "09. change": "0",
+        "10. change percent": "0%",
+      },
+    }
   }
 }
 
@@ -285,6 +437,11 @@ export async function searchStocks(keywords: string): Promise<AlphaVantageSearch
       keywords,
     })
 
+    // If data is null (due to rate limiting), return an empty response
+    if (!data) {
+      return { bestMatches: [] }
+    }
+
     // Check if the response has the expected structure
     if (!data || !data.bestMatches) {
       console.error(`Invalid search response format for "${keywords}":`, data)
@@ -311,49 +468,21 @@ export async function getStockTimeSeries(
       outputsize: outputSize,
     })
 
+    // If data is null (due to rate limiting), return a mock response
+    if (!data) {
+      return await generateMockTimeSeries(symbol, outputSize)
+    }
+
     // Check if the response has the expected structure
     if (!data || !data["Time Series (Daily)"]) {
       console.error(`Invalid time series response format for ${symbol}:`, data)
-      throw new Error(`Invalid time series data for ${symbol}`)
+      return await generateMockTimeSeries(symbol, outputSize)
     }
 
     return data as AlphaVantageTimeSeries
   } catch (error) {
     console.error(`Error in getStockTimeSeries for ${symbol}:`, error)
-
-    // Return a minimal valid structure with mock data to prevent client-side errors
-    const today = new Date()
-    const mockData: any = {
-      "Meta Data": {
-        "1. Information": "Mock Daily Time Series",
-        "2. Symbol": symbol,
-        "3. Last Refreshed": today.toISOString().split("T")[0],
-        "4. Output Size": outputSize,
-        "5. Time Zone": "US/Eastern",
-      },
-      "Time Series (Daily)": {},
-    }
-
-    // Generate 30 days of mock data
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today)
-      date.setDate(today.getDate() - i)
-      const dateStr = date.toISOString().split("T")[0]
-
-      // Base price on symbol's first character code for consistency
-      const basePrice = 100 + (symbol.charCodeAt(0) % 26) * 10
-      const variance = (i % 5) * 2
-
-      mockData["Time Series (Daily)"][dateStr] = {
-        "1. open": (basePrice - variance).toFixed(2),
-        "2. high": (basePrice + 5).toFixed(2),
-        "3. low": (basePrice - 5).toFixed(2),
-        "4. close": (basePrice + variance).toFixed(2),
-        "5. volume": "1000000",
-      }
-    }
-
-    return mockData
+    return await generateMockTimeSeries(symbol, outputSize)
   }
 }
 
@@ -371,10 +500,15 @@ export async function getIntradayData(
       outputsize: outputSize,
     })
 
+    // If data is null (due to rate limiting), return a mock response
+    if (!data) {
+      return await generateMockIntraday(symbol, interval, outputSize)
+    }
+
     // Check if the response has the expected structure
     if (!data || !data[`Time Series (${interval})`]) {
       console.error(`Invalid intraday response format for ${symbol}:`, data)
-      throw new Error(`Invalid intraday data for ${symbol}`)
+      return await generateMockIntraday(symbol, interval, outputSize)
     }
 
     return {
@@ -390,51 +524,30 @@ export async function getIntradayData(
     }
   } catch (error) {
     console.error(`Error in getIntradayData for ${symbol}:`, error)
-
-    // Return a minimal valid structure with mock data to prevent client-side errors
-    const now = new Date()
-    const mockData: any = {
-      "Meta Data": {
-        "1. Information": "Mock Intraday Time Series",
-        "2. Symbol": symbol,
-        "3. Last Refreshed": now.toISOString(),
-        "4. Interval": interval,
-        "5. Output Size": outputSize,
-        "6. Time Zone": "US/Eastern",
-      },
-      "Time Series (5min)": {},
-    }
-
-    // Generate 12 intervals (1 hour) of mock data
-    for (let i = 0; i < 12; i++) {
-      const timestamp = new Date(now)
-      timestamp.setMinutes(now.getMinutes() - i * 5)
-      const timestampStr = timestamp.toISOString().replace(/\.\d+Z$/, "")
-
-      // Base price on symbol's first character code for consistency
-      const basePrice = 100 + (symbol.charCodeAt(0) % 26) * 10
-      const variance = (i % 5) * 0.5
-
-      mockData["Time Series (5min)"][timestampStr] = {
-        "1. open": (basePrice - variance).toFixed(2),
-        "2. high": (basePrice + 1).toFixed(2),
-        "3. low": (basePrice - 1).toFixed(2),
-        "4. close": (basePrice + variance).toFixed(2),
-        "5. volume": "50000",
-      }
-    }
-
-    return mockData
+    return await generateMockIntraday(symbol, interval, outputSize)
   }
 }
 
 // Server action to get company overview
 export async function getCompanyOverview(symbol: string): Promise<any> {
   try {
-    return await fetchFromAPI("query", {
+    const data = await fetchFromAPI("query", {
       function: "OVERVIEW",
       symbol,
     })
+
+    // If data is null (due to rate limiting), return a mock response
+    if (!data) {
+      return {
+        Symbol: symbol,
+        Name: null,
+        Description: "Data not available due to API limitations",
+        Sector: "Unknown",
+        Industry: "Unknown",
+      }
+    }
+
+    return data
   } catch (error) {
     console.error(`Error in getCompanyOverview for ${symbol}:`, error)
     // Return a minimal valid structure to prevent client-side errors
@@ -451,31 +564,19 @@ export async function getCompanyOverview(symbol: string): Promise<any> {
 // Server action to get sector performance
 export async function getSectorPerformance(): Promise<any> {
   try {
-    return await fetchFromAPI("query", {
+    const data = await fetchFromAPI("query", {
       function: "SECTOR",
     })
+
+    // If data is null (due to rate limiting), return a mock response
+    if (!data) {
+      return await generateMockSectorPerformance()
+    }
+
+    return data
   } catch (error) {
     console.error("Error in getSectorPerformance:", error)
-    // Return a minimal valid structure to prevent client-side errors
-    return {
-      "Meta Data": {
-        Information: "Mock Sector Performance",
-        "Last Refreshed": new Date().toISOString(),
-      },
-      "Rank A: Real-Time Performance": {
-        Technology: "0.00%",
-        "Consumer Cyclical": "0.00%",
-        "Financial Services": "0.00%",
-        Healthcare: "0.00%",
-        "Communication Services": "0.00%",
-        Energy: "0.00%",
-        Industrials: "0.00%",
-        "Consumer Defensive": "0.00%",
-        Utilities: "0.00%",
-        "Basic Materials": "0.00%",
-        "Real Estate": "0.00%",
-      },
-    }
+    return await generateMockSectorPerformance()
   }
 }
 
@@ -487,12 +588,28 @@ export async function getTechnicalIndicator(
   timePeriod = 14,
 ): Promise<any> {
   try {
-    return await fetchFromAPI("query", {
+    const data = await fetchFromAPI("query", {
       function: indicator,
       symbol,
       interval,
       time_period: timePeriod.toString(),
     })
+
+    // If data is null (due to rate limiting), return a mock response
+    if (!data) {
+      return {
+        "Meta Data": {
+          "1: Symbol": symbol,
+          "2: Indicator": indicator,
+          "3: Last Refreshed": new Date().toISOString(),
+          "4: Interval": interval,
+          "5: Time Period": timePeriod,
+        },
+        "Technical Analysis": {},
+      }
+    }
+
+    return data
   } catch (error) {
     console.error(`Error in getTechnicalIndicator (${indicator}) for ${symbol}:`, error)
     // Return a minimal valid structure to prevent client-side errors
@@ -506,5 +623,96 @@ export async function getTechnicalIndicator(
       },
       "Technical Analysis": {},
     }
+  }
+}
+
+// Function to verify API key status
+export async function verifyAlphaVantageApiKey(): Promise<{
+  valid: boolean
+  message: string
+  key?: string
+  isPremium?: boolean
+  response?: any
+}> {
+  const apiKey = process.env.ALPHA_VANTAGE_API_KEY
+
+  if (!apiKey) {
+    return {
+      valid: false,
+      message: "Clé API non définie",
+    }
+  }
+
+  try {
+    // Effectuer une requête simple pour vérifier la validité de la clé
+    const response = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=AAPL&apikey=${apiKey}`)
+
+    if (!response.ok) {
+      return {
+        valid: false,
+        message: `Erreur HTTP: ${response.status}`,
+        key: apiKey.substring(0, 5) + "...",
+      }
+    }
+
+    const data = await response.json()
+
+    // Vérifier si la réponse contient un message d'erreur concernant la limite de requêtes
+    if (data.Information && data.Information.includes("API key")) {
+      return {
+        valid: true,
+        isPremium: false,
+        message: data.Information,
+        key: apiKey.substring(0, 5) + "...",
+        response: data,
+      }
+    }
+
+    // Vérifier si la réponse contient les données attendues
+    if (data["Global Quote"] && Object.keys(data["Global Quote"]).length > 0) {
+      return {
+        valid: true,
+        isPremium: true,
+        message: "Clé API valide et fonctionnelle",
+        key: apiKey.substring(0, 5) + "...",
+      }
+    }
+
+    return {
+      valid: false,
+      message: "Réponse API inattendue",
+      key: apiKey.substring(0, 5) + "...",
+      response: data,
+    }
+  } catch (error) {
+    return {
+      valid: false,
+      message: error instanceof Error ? error.message : "Erreur inconnue",
+      key: apiKey.substring(0, 5) + "...",
+    }
+  }
+}
+
+// Function to force reset rate limit status
+export async function resetRateLimitStatus(): Promise<boolean> {
+  const wasLimited = isRateLimited
+  isRateLimited = false
+  rateLimitDetectedTime = 0
+  return wasLimited
+}
+
+// Function to get current rate limit status
+export async function getRateLimitStatus(): Promise<{ isLimited: boolean; detectedAt: number; remainingTime: number }> {
+  if (!isRateLimited) {
+    return { isLimited: false, detectedAt: 0, remainingTime: 0 }
+  }
+
+  const now = Date.now()
+  const remainingTime = Math.max(0, RATE_LIMIT_DURATION - (now - rateLimitDetectedTime))
+
+  return {
+    isLimited: true,
+    detectedAt: rateLimitDetectedTime,
+    remainingTime,
   }
 }
