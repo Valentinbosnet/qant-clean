@@ -63,6 +63,48 @@ export function getApiStatus() {
   }
 }
 
+// Ajouter la fonction getConfig manquante après les fonctions existantes et avant l'initialisation
+
+// Fonction pour obtenir la configuration complète
+// Cette fonction est utilisée pour accéder à la configuration de manière unifiée
+export function getConfig() {
+  return {
+    // Configuration serveur (ne sera accessible que côté serveur)
+    server: {
+      openai: {
+        apiKey: serverEnv.OPENAI_API_KEY,
+        isAvailable: !!serverEnv.OPENAI_API_KEY,
+      },
+      alphaVantage: {
+        apiKey: serverEnv.ALPHA_VANTAGE_API_KEY,
+        isAvailable: !!serverEnv.ALPHA_VANTAGE_API_KEY,
+      },
+      supabase: {
+        url: serverEnv.SUPABASE_URL,
+        anonKey: serverEnv.SUPABASE_ANON_KEY,
+        serviceRoleKey: serverEnv.SUPABASE_SERVICE_ROLE_KEY,
+        isConfigured: !!serverEnv.SUPABASE_URL && !!serverEnv.SUPABASE_ANON_KEY,
+      },
+      environment: serverEnv.NODE_ENV,
+    },
+
+    // Configuration client (accessible côté client)
+    client: {
+      supabase: {
+        url: clientEnv.NEXT_PUBLIC_SUPABASE_URL,
+        anonKey: clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        isConfigured: !!clientEnv.NEXT_PUBLIC_SUPABASE_URL && !!clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      },
+      useMockPayments: clientEnv.NEXT_PUBLIC_USE_MOCK_PAYMENTS,
+      apiBaseUrl: clientEnv.NEXT_PUBLIC_API_BASE_URL,
+    },
+
+    // Fonctions utilitaires
+    isProduction: typeof window === "undefined" ? serverEnv.NODE_ENV === "production" : false,
+    isDevelopment: typeof window === "undefined" ? serverEnv.NODE_ENV === "development" : true,
+  }
+}
+
 // Initialiser l'environnement au démarrage si en mode serveur
 if (typeof window === "undefined") {
   serverEnv.logEnvStatus()
