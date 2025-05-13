@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { Providers } from "./providers"
 import Link from "next/link"
 import { AuthStatus } from "@/components/auth-status"
+import { BellPlus } from "lucide-react"
 
 export const metadata = {
   title: "Stock Dashboard",
@@ -41,6 +42,13 @@ export default function RootLayout({
                   </Link>
                   <Link href="/favorites" className="text-sm font-medium">
                     Favoris
+                  </Link>
+                  <Link
+                    href="/prediction-alerts"
+                    className="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-accent"
+                  >
+                    <BellPlus className="h-4 w-4 mr-2" />
+                    Alertes de prédiction
                   </Link>
                   <AuthStatus />
                 </nav>

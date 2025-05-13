@@ -167,6 +167,9 @@ export function signOutOfflineUser(): void {
   localStorage.removeItem("supabase.auth.token")
 }
 
+// Alias pour la compatibilité avec d'autres parties du code
+export const isOfflineMode = isOfflineModeEnabled
+
 // Fonction pour vérifier la connectivité
 export function checkInternetConnection(): Promise<boolean> {
   return new Promise((resolve) => {
