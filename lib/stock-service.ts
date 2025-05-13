@@ -660,3 +660,56 @@ export async function getCompanyFundamentals(symbol: string): Promise<CompanyFun
     return null
   }
 }
+
+// Ajoutez cette fonction pour vérifier la validité de la clé API
+export async function verifyAlphaVantageApiKey() {
+  const apiKey = process.env.ALPHA_VANTAGE_API_KEY
+
+  if (!apiKey) {
+    console.error("Clé API Alpha Vantage non définie")
+    return {
+      valid: false,
+      message: "Clé API non définie",
+      key: null,
+    }
+  }
+
+  try {
+    // Effectuer une requête simple pour vérifier la validité de la clé
+    const response = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=AAPL&apikey=${apiKey}`)
+
+    const data = await response.json()
+
+    // Vérifier si la réponse contient un message d'erreur concernant la limite de requêtes
+    if (data.Information && data.Information.includes("API key")) {
+      return {
+        valid: false,
+        message: data.Information,
+        key: apiKey.substring(0, 5) + "...", // Ne pas afficher la clé complète
+      }
+    }
+
+    // Vérifier si la réponse contient les données attendues
+    if (data["Global Quote"] && Object.keys(data["Global Quote"]).length > 0) {
+      return {
+        valid: true,
+        message: "Clé API valide",
+        key: apiKey.substring(0, 5) + "...", // Ne pas afficher la clé complète
+      }
+    }
+
+    return {
+      valid: false,
+      message: "Réponse API inattendue",
+      key: apiKey.substring(0, 5) + "...",
+      response: data,
+    }
+  } catch (error) {
+    console.error("Erreur lors de la vérification de la clé API:", error)
+    return {
+      valid: false,
+      message: error instanceof Error ? error.message : "Erreur inconnue",
+      key: apiKey.substring(0, 5) + "...",
+    }
+  }
+}

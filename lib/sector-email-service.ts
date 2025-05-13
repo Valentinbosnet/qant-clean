@@ -1,3 +1,7 @@
+/**
+ * Service d'envoi d'emails spécifique aux alertes sectorielles
+ */
+
 import { emailService, type EmailOptions } from "./email-service"
 import { sectorAlertsService, type SectorAlert } from "./sector-alerts-service"
 import type { SectorType } from "./sector-classification"
@@ -22,8 +26,50 @@ class SectorEmailService {
     setInterval(() => this.resetEmailCountsIfNeeded(), 1000 * 60 * 60) // Vérifier toutes les heures
   }
 
+  async sendSectorAlertEmail(
+    email: string,
+    sectorName: string,
+    alertType: "opportunity" | "warning",
+    details: string,
+  ): Promise<boolean> {
+    const subject =
+      alertType === "opportunity"
+        ? `Opportunité détectée: ${sectorName}`
+        : `Alerte: Risque dans le secteur ${sectorName}`
+
+    const color = alertType === "opportunity" ? "#4CAF50" : "#F44336"
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: ${color}; color: white; padding: 20px; text-align: center;">
+          <h1>${subject}</h1>
+        </div>
+        <div style="padding: 20px; border: 1px solid #ddd; border-top: none;">
+          <p>Bonjour,</p>
+          <p>Notre système a détecté un ${alertType === "opportunity" ? "signal d'opportunité" : "avertissement"} pour le secteur <strong>${sectorName}</strong>.</p>
+          <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid ${color}; margin: 20px 0;">
+            ${details}
+          </div>
+          <p>Pour plus de détails, connectez-vous à votre tableau de bord.</p>
+          <div style="text-align: center; margin-top: 30px;">
+            <a href="https://votre-app.com/alerts/sectors" style="background-color: #0070f3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Voir le tableau de bord</a>
+          </div>
+          <p style="margin-top: 30px; font-size: 12px; color: #666;">
+            Si vous ne souhaitez plus recevoir ces alertes, <a href="https://votre-app.com/alerts/sectors/unsubscribe?email=${encodeURIComponent(email)}">cliquez ici pour vous désabonner</a>.
+          </p>
+        </div>
+      </div>
+    `
+
+    return emailService.sendEmail({
+      to: { email },
+      subject,
+      html,
+    })
+  }
+
   // Envoyer un email d'alerte sectorielle
-  public async sendSectorAlertEmail(options: SectorAlertEmailOptions): Promise<boolean> {
+  public async sendSectorAlertEmailOld(options: SectorAlertEmailOptions): Promise<boolean> {
     const { userId, userEmail, alerts, unsubscribeToken } = options
 
     // Vérifier si l'utilisateur a atteint la limite quotidienne d'emails
@@ -89,49 +135,13 @@ class SectorEmailService {
   }
 
   // Envoyer un email de test d'alerte sectorielle
-  public async sendTestSectorAlertEmail(userEmail: string): Promise<boolean> {
-    // Créer des alertes de test
-    const testAlerts: SectorAlert[] = [
-      {
-        id: "test-alert-1",
-        sector: "technology",
-        indicatorName: "Taux d'inflation",
-        previousValue: 2.5,
-        newValue: 3.2,
-        changePercent: 28,
-        impact: "negative",
-        importance: "high",
-        message: "Le taux d'inflation a augmenté de 28% (2.5 → 3.2)",
-        created: new Date(),
-        read: false,
-      },
-      {
-        id: "test-alert-2",
-        sector: "financial",
-        indicatorName: "Taux directeur",
-        previousValue: 1.0,
-        newValue: 1.25,
-        changePercent: 25,
-        impact: "negative",
-        importance: "high",
-        message: "Le taux directeur a augmenté de 25% (1.0 → 1.25)",
-        created: new Date(),
-        read: false,
-      },
-    ]
-
-    // Générer le contenu HTML de l'email
-    const html = this.generateSectorAlertEmailHtml(testAlerts, "test-token")
-
-    // Configurer les options d'email
-    const emailOptions: EmailOptions = {
-      to: userEmail,
-      subject: "Test d'alerte sectorielle",
-      html,
-    }
-
-    // Envoyer l'email
-    return await emailService.sendEmail(emailOptions)
+  public async sendTestSectorAlertEmail(email: string): Promise<boolean> {
+    return this.sendSectorAlertEmail(
+      email,
+      "Technologies",
+      "opportunity",
+      "Les indicateurs techniques et fondamentaux suggèrent une forte opportunité d'investissement dans ce secteur au cours des prochaines semaines. Les valorisations sont attractives et le momentum est positif.",
+    )
   }
 
   // Vérifier si l'utilisateur a atteint la limite quotidienne d'emails
@@ -414,5 +424,5 @@ class SectorEmailService {
   }
 }
 
-// Exporter une instance du service
+// Exporter une instance singleton
 export const sectorEmailService = new SectorEmailService()

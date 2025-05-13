@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     if (success) {
       return NextResponse.json({
         success: true,
-        message: "Test email sent successfully",
+        message: "Test email sent successfully (mock mode)",
       })
     } else {
       return NextResponse.json(

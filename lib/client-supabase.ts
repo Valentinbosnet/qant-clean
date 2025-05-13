@@ -1,40 +1,22 @@
 "use client"
 
-import { createClient } from "@supabase/supabase-js"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Database } from "@/types/database.types"
 
-// Client pour le navigateur (singleton)
-let browserClient: ReturnType<typeof createClient<Database>> | null = null
-let initializationAttempts = 0
-const MAX_ATTEMPTS = 3
+// Singleton pattern pour éviter de créer plusieurs instances
+let supabaseClient: ReturnType<typeof createClientComponentClient<Database>> | null = null
 
 export function getBrowserClient() {
   if (typeof window === "undefined") {
-    console.error("getBrowserClient doit être appelé côté client uniquement")
+    console.warn("getBrowserClient doit être appelé côté client uniquement")
     return null
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error(
-      "Variables d'environnement Supabase manquantes. Assurez-vous que NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY sont définies.",
-    )
-    return null
+  if (!supabaseClient) {
+    supabaseClient = createClientComponentClient<Database>()
   }
 
-  if (!browserClient) {
-    browserClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        flowType: "pkce",
-      },
-    })
-  }
-  return browserClient
+  return supabaseClient
 }
 
 // Ajout de l'export manquant getBrowserClient comme alias de getClientSupabase
@@ -47,7 +29,7 @@ export async function testSupabaseConnection() {
     return { success: false, message: "Fonction appelée côté serveur" }
   }
 
-  if (!browserClient) {
+  if (!supabaseClient) {
     return { success: false, message: "Client Supabase non initialisé" }
   }
 
@@ -55,7 +37,7 @@ export async function testSupabaseConnection() {
     console.log("Test manuel de connexion à Supabase...")
 
     // Utiliser une requête simple qui ne nécessite pas d'authentification
-    const { data, error, status } = await browserClient
+    const { data, error, status } = await supabaseClient
       .from("favorites")
       .select("count", { count: "exact", head: true })
 
@@ -87,8 +69,7 @@ export function isClient() {
 
 // Fonction pour réinitialiser le client (utile pour les tests ou lors de la déconnexion)
 export function resetBrowserClient() {
-  browserClient = null
-  initializationAttempts = 0
+  supabaseClient = null
   console.log("Client Supabase réinitialisé")
 }
 

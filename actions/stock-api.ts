@@ -195,65 +195,47 @@ async function fetchFromAPI<T>(endpoint: string, params: Record<string, string>)
 }
 
 // Server action to get stock quote
-export async function getStockQuote(symbol: string): Promise<AlphaVantageQuote> {
+export async function getStockQuote(symbol: string) {
+  const apiKey = process.env.ALPHA_VANTAGE_API_KEY
+
+  if (!apiKey) {
+    console.error("Clé API Alpha Vantage non définie")
+    throw new Error("API_KEY_MISSING")
+  }
+
   try {
-    const data = await fetchFromAPI<any>("query", {
-      function: "GLOBAL_QUOTE",
-      symbol,
-    })
+    const response = await fetch(
+      `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`,
+    )
 
-    // Check if the response has the expected structure
-    if (!data || !data["Global Quote"] || Object.keys(data["Global Quote"]).length === 0) {
-      console.error(`Invalid quote response format for ${symbol}:`, data)
-      throw new Error(`Invalid quote data for ${symbol}`)
+    const data = await response.json()
+
+    // Vérifier si la réponse contient un message d'erreur concernant la limite de requêtes
+    if (data.Information && data.Information.includes("API key")) {
+      console.error("Problème avec la clé API Alpha Vantage:", data.Information)
+      throw new Error("API_KEY_LIMIT")
     }
 
-    return data as AlphaVantageQuote
-  } catch (error: any) {
-    console.error(`Error in getStockQuote for ${symbol}:`, error)
+    // Vérifier si la réponse contient les données attendues
+    if (!data["Global Quote"] || Object.keys(data["Global Quote"]).length === 0) {
+      console.error("Réponse API inattendue:", data)
+      throw new Error("INVALID_RESPONSE")
+    }
 
-    // Check for rate limit error - but we should rarely hit this with premium plan
-    if (error.message === "API_RATE_LIMIT_REACHED" || (error.message && error.message.includes("API_INFORMATION"))) {
-      // For premium users, we'll try to continue with cached data if available
-      const cachedData = getCachedData(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}`)
-      if (cachedData) {
-        console.log(`Using cached data for ${symbol} due to API issue`)
-        return cachedData as AlphaVantageQuote
+    // Traitement normal des données
+    // ...
+
+    return data
+  } catch (error) {
+    console.error(`Erreur lors de la récupération des données pour ${symbol}:`, error)
+
+    if (error instanceof Error) {
+      if (["API_KEY_MISSING", "API_KEY_LIMIT", "INVALID_RESPONSE"].includes(error.message)) {
+        throw error
       }
-
-      // If no cached data, return a special structure but don't trigger the rate limit UI
-      return {
-        "Global Quote": {
-          "01. symbol": symbol,
-          "02. open": "0",
-          "03. high": "0",
-          "04. low": "0",
-          "05. price": "0",
-          "06. volume": "0",
-          "07. latest trading day": new Date().toISOString().split("T")[0],
-          "08. previous close": "0",
-          "09. change": "0",
-          "10. change percent": "0%",
-          // Don't include error: "rate_limit" for premium users
-        },
-      } as any
     }
 
-    // Return a minimal valid structure to prevent client-side errors
-    return {
-      "Global Quote": {
-        "01. symbol": symbol,
-        "02. open": "0",
-        "03. high": "0",
-        "04. low": "0",
-        "05. price": "0",
-        "06. volume": "0",
-        "07. latest trading day": new Date().toISOString().split("T")[0],
-        "08. previous close": "0",
-        "09. change": "0",
-        "10. change percent": "0%",
-      },
-    }
+    throw new Error("FETCH_ERROR")
   }
 }
 
