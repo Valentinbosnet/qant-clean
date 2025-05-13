@@ -3,229 +3,230 @@
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { StockChart } from "@/components/stock-chart"
-import { StockPrediction } from "@/components/stock-prediction"
 import { useStockModal } from "@/hooks/use-stock-modal"
-import { formatPrice } from "@/lib/utils"
-import { getCompanyOverview } from "@/actions/stock-api"
-import { Star, ExternalLink, Info, TrendingUp, History, BarChart3 } from "lucide-react"
-import { useFavorites } from "@/hooks/use-favorites"
+import { StockChart } from "@/components/stock-chart"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { getStockData } from "@/lib/stock-service"
+import { ArrowUpIcon, ArrowDownIcon, TrendingUp, DollarSign, BarChart3 } from "lucide-react"
+// Suppression de l'import du composant de prédiction
+// import { StockPrediction } from '@/components/stock-prediction'
 
 export function StockDetailModal() {
-  const { isOpen, closeModal, stock } = useStockModal()
-  const [companyInfo, setCompanyInfo] = useState<any>(null)
+  const { isOpen, onClose, stock } = useStockModal()
+  const [stockData, setStockData] = useState(null)
   const [loading, setLoading] = useState(false)
-  const { favorites, addFavorite, removeFavorite, isLoading: favoritesLoading } = useFavorites()
+  const [activeTab, setActiveTab] = useState("overview")
 
-  // Vérifier si l'action est dans les favoris
-  const isFavorite = favorites.some((fav) => fav === stock?.symbol)
-
-  // Charger les informations de l'entreprise lorsque le modal s'ouvre
   useEffect(() => {
+    async function loadStockData() {
+      if (stock?.symbol) {
+        setLoading(true)
+        try {
+          const data = await getStockData(stock.symbol)
+          setStockData(data)
+        } catch (error) {
+          console.error("Error loading stock data:", error)
+        } finally {
+          setLoading(false)
+        }
+      }
+    }
+
     if (isOpen && stock) {
-      loadCompanyInfo(stock.symbol)
+      loadStockData()
+    } else {
+      setStockData(null)
     }
   }, [isOpen, stock])
 
-  // Charger les informations de l'entreprise
-  const loadCompanyInfo = async (symbol: string) => {
-    setLoading(true)
-    try {
-      const info = await getCompanyOverview(symbol)
-      setCompanyInfo(info)
-    } catch (error) {
-      console.error("Error loading company info:", error)
-    } finally {
-      setLoading(false)
-    }
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+    }).format(value)
   }
 
-  // Gérer l'ajout/suppression des favoris
-  const handleFavoriteToggle = () => {
-    if (!stock) return
-
-    if (isFavorite) {
-      removeFavorite(stock.symbol)
-    } else {
-      addFavorite(stock.symbol)
-    }
+  const formatPercentage = (value) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "percent",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value / 100)
   }
 
-  if (!stock) return null
+  const getChangeColor = (change) => {
+    return change >= 0 ? "text-green-500" : "text-red-500"
+  }
+
+  const getChangeIcon = (change) => {
+    return change >= 0 ? <ArrowUpIcon className="h-4 w-4" /> : <ArrowDownIcon className="h-4 w-4" />
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={closeModal}>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <div className="flex items-center">
-              <span>
-                {stock.symbol} - {stock.name}
-              </span>
-              <Badge variant={stock.change >= 0 ? "success" : "destructive"} className="ml-2">
-                {stock.change >= 0 ? "+" : ""}
-                {stock.change.toFixed(2)} ({stock.percentChange.toFixed(2)}%)
-              </Badge>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="icon" onClick={handleFavoriteToggle} disabled={favoritesLoading}>
-                <Star className={`h-4 w-4 ${isFavorite ? "fill-yellow-400 text-yellow-400" : ""}`} />
-                <span className="sr-only">{isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}</span>
-              </Button>
-              <Button variant="outline" size="icon" asChild>
-                <a href={`https://finance.yahoo.com/quote/${stock.symbol}`} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4" />
-                  <span className="sr-only">Voir sur Yahoo Finance</span>
-                </a>
-              </Button>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="py-4">
-          <div className="flex items-baseline justify-between mb-6">
-            <div className="text-3xl font-bold">{formatPrice(stock.price)}</div>
-            <div className={`text-lg font-semibold ${stock.change >= 0 ? "text-green-500" : "text-red-500"}`}>
-              {stock.change >= 0 ? "+" : ""}
-              {stock.change.toFixed(2)} ({stock.percentChange.toFixed(2)}%)
-            </div>
-          </div>
-
-          <Tabs defaultValue="chart">
-            <TabsList className="mb-4">
-              <TabsTrigger value="chart" className="flex items-center">
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Graphique
-              </TabsTrigger>
-              <TabsTrigger value="prediction" className="flex items-center">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Prédiction
-              </TabsTrigger>
-              <TabsTrigger value="info" className="flex items-center">
-                <Info className="h-4 w-4 mr-2" />
-                Informations
-              </TabsTrigger>
-              <TabsTrigger value="history" className="flex items-center">
-                <History className="h-4 w-4 mr-2" />
-                Historique
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="chart" className="h-[400px]">
-              <StockChart data={stock.history} intraday={stock.intraday} showIntraday={true} height={400} />
-            </TabsContent>
-
-            <TabsContent value="prediction">
-              <StockPrediction stock={stock} days={30} />
-            </TabsContent>
-
-            <TabsContent value="info">
-              {loading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+        {stock && (
+          <>
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle className="text-2xl font-bold">
+                    {stock.name} ({stock.symbol})
+                  </DialogTitle>
+                  <p className="text-sm text-muted-foreground">{stock.exchange}</p>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">À propos</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {companyInfo?.Description ||
-                          `${stock.name} (${stock.symbol}) est une entreprise cotée en bourse.`}
-                      </p>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">Secteur</h3>
-                      <p className="text-sm">{companyInfo?.Sector || "Information non disponible"}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{companyInfo?.Industry || ""}</p>
+                {stockData && (
+                  <div className="flex items-center space-x-2">
+                    <span className="text-2xl font-bold">{formatCurrency(stockData.price)}</span>
+                    <div className={`flex items-center ${getChangeColor(stockData.change)}`}>
+                      {getChangeIcon(stockData.change)}
+                      <span className="ml-1">
+                        {formatCurrency(stockData.change)} ({formatPercentage(stockData.changePercent)})
+                      </span>
                     </div>
                   </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">Chiffres clés</h3>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Capitalisation</p>
-                          <p className="text-sm font-medium">
-                            {companyInfo?.MarketCapitalization
-                              ? formatPrice(Number(companyInfo.MarketCapitalization))
-                              : "N/A"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">P/E Ratio</p>
-                          <p className="text-sm font-medium">{companyInfo?.PERatio || "N/A"}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Dividende</p>
-                          <p className="text-sm font-medium">
-                            {companyInfo?.DividendYield
-                              ? `${(Number(companyInfo.DividendYield) * 100).toFixed(2)}%`
-                              : "N/A"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">52 Semaines</p>
-                          <p className="text-sm font-medium">
-                            {companyInfo?.["52WeekLow"] && companyInfo?.["52WeekHigh"]
-                              ? `${companyInfo["52WeekLow"]} - ${companyInfo["52WeekHigh"]}`
-                              : "N/A"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">Contact</h3>
-                      <p className="text-sm">
-                        {companyInfo?.Address
-                          ? `${companyInfo.Address}, ${companyInfo.City}, ${companyInfo.Country}`
-                          : "Information non disponible"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">{companyInfo?.Website || ""}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="history">
-              <div className="max-h-[400px] overflow-y-auto">
-                <table className="w-full border-collapse">
-                  <thead className="sticky top-0 bg-background">
-                    <tr className="border-b">
-                      <th className="text-left py-2 px-4">Date</th>
-                      <th className="text-right py-2 px-4">Prix</th>
-                      <th className="text-right py-2 px-4">Variation</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stock.history.slice(0, 60).map((point, index) => {
-                      const prevPoint = stock.history[index + 1]
-                      const change = prevPoint ? point.price - prevPoint.price : 0
-                      const percentChange = prevPoint ? (change / prevPoint.price) * 100 : 0
-
-                      return (
-                        <tr key={point.date} className="border-b">
-                          <td className="py-2 px-4">{point.date}</td>
-                          <td className="text-right py-2 px-4">{formatPrice(point.price)}</td>
-                          <td className={`text-right py-2 px-4 ${change >= 0 ? "text-green-500" : "text-red-500"}`}>
-                            {change >= 0 ? "+" : ""}
-                            {change.toFixed(2)} ({percentChange.toFixed(2)}%)
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                )}
               </div>
-            </TabsContent>
-          </Tabs>
-        </div>
+            </DialogHeader>
+
+            <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="chart">Chart</TabsTrigger>
+                {/* Suppression de l'onglet de prédiction */}
+                {/* <TabsTrigger value="prediction">Prediction</TabsTrigger> */}
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-4 py-4">
+                {loading ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-[125px] w-full" />
+                    <Skeleton className="h-[125px] w-full" />
+                  </div>
+                ) : stockData ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Market Stats</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <dl className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <dt className="text-muted-foreground">Open</dt>
+                            <dd className="font-medium">{formatCurrency(stockData.open)}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground">Previous Close</dt>
+                            <dd className="font-medium">{formatCurrency(stockData.previousClose)}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground">Day High</dt>
+                            <dd className="font-medium">{formatCurrency(stockData.high)}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground">Day Low</dt>
+                            <dd className="font-medium">{formatCurrency(stockData.low)}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground">Volume</dt>
+                            <dd className="font-medium">{stockData.volume.toLocaleString()}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground">52-Week Range</dt>
+                            <dd className="font-medium">
+                              {formatCurrency(stockData.yearLow)} - {formatCurrency(stockData.yearHigh)}
+                            </dd>
+                          </div>
+                        </dl>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Key Indicators</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <dl className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <dt className="flex items-center text-sm text-muted-foreground">
+                              <TrendingUp className="mr-2 h-4 w-4" />
+                              <span>Trend</span>
+                            </dt>
+                            <dd>
+                              <Badge variant={stockData.trend === "up" ? "success" : "destructive"}>
+                                {stockData.trend === "up" ? "Bullish" : "Bearish"}
+                              </Badge>
+                            </dd>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <dt className="flex items-center text-sm text-muted-foreground">
+                              <BarChart3 className="mr-2 h-4 w-4" />
+                              <span>Volatility</span>
+                            </dt>
+                            <dd>
+                              <Badge variant="outline">{stockData.volatility}</Badge>
+                            </dd>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <dt className="flex items-center text-sm text-muted-foreground">
+                              <DollarSign className="mr-2 h-4 w-4" />
+                              <span>Market Cap</span>
+                            </dt>
+                            <dd className="font-medium">
+                              {stockData.marketCap ? formatCurrency(stockData.marketCap) : "N/A"}
+                            </dd>
+                          </div>
+                        </dl>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No data available</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="chart">
+                {loading ? (
+                  <Skeleton className="h-[400px] w-full" />
+                ) : stockData ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Price History</CardTitle>
+                      <CardDescription>Historical price data for {stock.symbol} over the past month</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[400px]">
+                        <StockChart symbol={stock.symbol} data={stockData.historicalData} />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No chart data available</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Suppression du contenu de l'onglet de prédiction */}
+              {/* <TabsContent value="prediction">
+                {loading ? (
+                  <Skeleton className="h-[400px] w-full" />
+                ) : stockData ? (
+                  <StockPrediction symbol={stock.symbol} currentPrice={stockData.price} />
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No prediction data available</p>
+                  </div>
+                )}
+              </TabsContent> */}
+            </Tabs>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )

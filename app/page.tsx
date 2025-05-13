@@ -5,13 +5,12 @@ import { StockGrid } from "@/components/stock-grid"
 import { StockDetailModal } from "@/components/stock-detail-modal"
 import { ApiStatus } from "@/components/api-status"
 import { Badge } from "@/components/ui/badge"
-import { Database, TrendingUp, User, Star } from "lucide-react"
+import { Database, TrendingUp, User, Star, BarChart3 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useFavorites } from "@/hooks/use-favorites"
-import { PredictionWidget } from "@/components/prediction-widget"
 import { AuthDebugPanel } from "@/components/auth/auth-debug-panel"
 
 export default function Home() {
@@ -53,6 +52,12 @@ export default function Home() {
                 <Link href="/favorites">
                   <Star className="h-4 w-4 mr-2" />
                   Mes favoris ({favoritesLoading ? "..." : favorites.length})
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/market-predictions">
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Prédictions
                 </Link>
               </Button>
             </div>
@@ -113,16 +118,16 @@ export default function Home() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <User className="h-5 w-5 mr-2 text-blue-500" />
-                Personnalisez votre expérience
+                <BarChart3 className="h-5 w-5 mr-2 text-purple-500" />
+                Prédictions de marché
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p>Adaptez l'interface à vos besoins et recevez des notifications personnalisées.</p>
+              <p>Accédez à des prédictions basées sur l'IA pour vous aider dans vos décisions d'investissement.</p>
             </CardContent>
             <CardFooter>
               <Button asChild>
-                <Link href="/auth">Créer un compte</Link>
+                <Link href="/market-predictions">Voir les prédictions</Link>
               </Button>
             </CardFooter>
           </Card>
@@ -131,13 +136,9 @@ export default function Home() {
 
       {/* Widgets du tableau de bord */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-4">
           <ApiStatus />
           <StockGrid />
-        </div>
-        <div className="space-y-6">
-          <PredictionWidget />
-          {/* Autres widgets peuvent être ajoutés ici */}
         </div>
       </div>
 
