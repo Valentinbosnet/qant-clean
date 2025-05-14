@@ -17,36 +17,8 @@ export default function DashboardPage() {
   const { toast } = useToast()
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const { dashboardConfig, isLoading, saveLayout, addWidget, removeWidget, updateWidgetSettings } = useDashboard()
-
-  const handleLayoutChange = (layout: any) => {
-    saveLayout(layout)
-  }
-
-  const handleAddWidget = (widgetType: string) => {
-    addWidget(widgetType)
-    setAddMenuOpen(false)
-    toast({
-      title: "Widget ajouté",
-      description: "Le widget a été ajouté à votre tableau de bord",
-    })
-  }
-
-  const handleRemoveWidget = (widgetId: string) => {
-    removeWidget(widgetId)
-    toast({
-      title: "Widget supprimé",
-      description: "Le widget a été supprimé de votre tableau de bord",
-    })
-  }
-
-  const handleUpdateSettings = (widgetId: string, settings: any) => {
-    updateWidgetSettings(widgetId, settings)
-    toast({
-      title: "Paramètres mis à jour",
-      description: "Les paramètres du widget ont été mis à jour",
-    })
-  }
+  const { layout, isLoading, handleAddWidget, handleRemoveWidget, handleUpdateWidget, handleLayoutChange } =
+    useDashboard()
 
   if (isLoading) {
     return (
@@ -89,6 +61,38 @@ export default function DashboardPage() {
     )
   }
 
+  // Vérifier si layout existe avant d'accéder à ses propriétés
+  if (!layout) {
+    return (
+      <div className="container mx-auto p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Erreur de chargement</CardTitle>
+            <CardDescription>Impossible de charger votre tableau de bord</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-4">
+              Une erreur s'est produite lors du chargement de votre tableau de bord. Veuillez rafraîchir la page ou
+              contacter le support si le problème persiste.
+            </p>
+            <Button variant="default" onClick={() => window.location.reload()}>
+              Rafraîchir la page
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const handleAddWidgetClick = (type: string, title: string, settings: any = {}) => {
+    handleAddWidget(type, title, settings)
+    setAddMenuOpen(false)
+    toast({
+      title: "Widget ajouté",
+      description: `Le widget "${title}" a été ajouté à votre tableau de bord`,
+    })
+  }
+
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
@@ -108,23 +112,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <ConfigurableDashboard
-        widgets={dashboardConfig.widgets}
-        layout={dashboardConfig.layout}
-        onLayoutChange={handleLayoutChange}
-        onRemoveWidget={handleRemoveWidget}
-        onUpdateWidgetSettings={handleUpdateSettings}
-      />
+      <ConfigurableDashboard />
 
-      <WidgetMenu open={addMenuOpen} onClose={() => setAddMenuOpen(false)} onAddWidget={handleAddWidget} />
+      <WidgetMenu open={addMenuOpen} onClose={() => setAddMenuOpen(false)} onAddWidget={handleAddWidgetClick} />
 
-      <WidgetSettings
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        widgets={dashboardConfig.widgets}
-        onUpdateSettings={handleUpdateSettings}
-        onRemoveWidget={handleRemoveWidget}
-      />
+      <WidgetSettings open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   )
 }
