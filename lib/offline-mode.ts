@@ -43,6 +43,11 @@ export function isOfflineModeEnabled(): boolean {
   return value ? JSON.parse(value) : false
 }
 
+// Fonction alias pour obtenir l'état du mode hors ligne (ajoutée pour compatibilité)
+export function getOfflineMode(): boolean {
+  return isOfflineModeEnabled()
+}
+
 // Récupérer tous les utilisateurs hors ligne
 export function getOfflineUsers(): OfflineUser[] {
   if (typeof window === "undefined") return []

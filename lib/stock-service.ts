@@ -713,3 +713,80 @@ export async function verifyAlphaVantageApiKey() {
     }
   }
 }
+
+// Ajout de la fonction fetchStockData manquante
+export async function fetchStockData(symbol: string, period = "1d"): Promise<any> {
+  try {
+    // Vérifier le cache d'abord
+    const cacheKey = `fetchStockData_${symbol}_${period}`
+    const cachedData = getFromCache<any>(cacheKey)
+
+    if (cachedData) {
+      return cachedData
+    }
+
+    // Déterminer les données à récupérer en fonction de la période
+    const stockData: any = {}
+
+    // Récupérer les données de base du stock
+    const quote = await getStockQuote(symbol)
+    stockData.quote = quote
+
+    // Récupérer l'historique en fonction de la période
+    let historyDays = 30 // Par défaut
+
+    switch (period) {
+      case "1d":
+        // Pour 1 jour, utiliser les données intraday
+        stockData.intraday = await getIntraday(symbol)
+        historyDays = 1
+        break
+      case "1w":
+        historyDays = 7
+        break
+      case "1m":
+        historyDays = 30
+        break
+      case "3m":
+        historyDays = 90
+        break
+      case "6m":
+        historyDays = 180
+        break
+      case "1y":
+        historyDays = 365
+        break
+      case "5y":
+        historyDays = 1825
+        break
+      default:
+        historyDays = 30
+    }
+
+    // Récupérer l'historique
+    const history = await getStockHistory(symbol, historyDays)
+    stockData.history = history
+
+    // Récupérer les données fondamentales
+    const fundamentals = await getCompanyFundamentals(symbol)
+    if (fundamentals) {
+      stockData.fundamentals = fundamentals
+    }
+
+    // Sauvegarder dans le cache
+    const cacheDuration = period === "1d" ? INTRADAY_CACHE_DURATION : QUOTE_CACHE_DURATION
+    saveToCache(cacheKey, stockData, cacheDuration)
+
+    return stockData
+  } catch (error) {
+    console.error(`Erreur lors de la récupération des données pour ${symbol}:`, error)
+
+    // Générer des données de secours
+    return {
+      quote: generateFallbackStockData(symbol),
+      history: generateFallbackHistory(symbol),
+      intraday: [],
+      fundamentals: null,
+    }
+  }
+}

@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useState } from "react"
 import type { Session, User, AuthError } from "@supabase/supabase-js"
 import { useToast } from "@/hooks/use-toast"
 import { getClientSupabase } from "@/lib/client-supabase"
+import { isOfflineMode, signOutOfflineUser, authenticateOfflineUser } from "@/lib/offline-mode"
 
 type AuthContextType = {
   user: User | null
@@ -135,6 +136,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       console.log("Tentative de connexion avec:", email)
+      if (isOfflineMode()) {
+        const offlineUser = await authenticateOfflineUser(email, password)
+        if (offlineUser) {
+          setUser(offlineUser)
+          setSession({
+            access_token: "offline_token",
+            token_type: "offline",
+            expires_in: 3600,
+            refresh_token: "offline_refresh_token",
+            user: offlineUser,
+          })
+          setIsAuthenticated(true)
+          return { error: null }
+        } else {
+          return { error: { message: "Invalid credentials" } as AuthError }
+        }
+      }
       const supabase = getClientSupabase()
       if (!supabase) {
         console.error("Client Supabase non disponible pour la connexion")
@@ -232,6 +250,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     try {
       console.log("Tentative de déconnexion")
+      if (isOfflineMode()) {
+        await signOutOfflineUser()
+        setUser(null)
+        setSession(null)
+        setIsAuthenticated(false)
+        console.log("Déconnexion hors ligne réussie")
+        return
+      }
       const supabase = getClientSupabase()
       if (!supabase) {
         console.error("Client Supabase non disponible pour la déconnexion")

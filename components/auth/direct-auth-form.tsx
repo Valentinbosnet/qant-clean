@@ -14,12 +14,7 @@ import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { supabaseFetch } from "@/lib/supabase-proxy"
-import {
-  isOfflineModeEnabled,
-  authenticateOfflineUser,
-  addOfflineUser,
-  isOfflineAuthenticated,
-} from "@/lib/offline-mode"
+import { isOfflineMode, authenticateOfflineUser, addOfflineUser, isOfflineAuthenticated } from "@/lib/offline-mode"
 
 // Schémas de validation
 const emailSchema = z.string().email({ message: "Adresse email invalide" })
@@ -52,7 +47,7 @@ export function DirectAuthForm({ defaultTab = "signin" }: DirectAuthFormProps) {
   useEffect(() => {
     setIsClient(true)
     if (typeof window !== "undefined") {
-      const isOffline = isOfflineModeEnabled()
+      const isOffline = isOfflineMode()
       setOfflineMode(isOffline)
     }
     console.log("DirectAuthForm monté côté client")
