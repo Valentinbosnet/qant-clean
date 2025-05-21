@@ -1,0 +1,155 @@
+/* Styles pour le mode présentation */
+
+.presentation-mode .widget {
+  transition: all 0.3s ease;
+}
+
+.presentation-mode.focus-mode .widget {
+  opacity: 0.4;
+  filter: grayscale(50%);
+}
+
+.presentation-mode.focus-mode .widget.highlighted {
+  opacity: 1;
+  filter: none;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.5), 0 10px 20px -10px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+.presentation-mode .widget.hidden-widget {
+  display: none;
+}
+
+.presentation-mode.hide-controls .widget-header-controls {
+  display: none;
+}
+
+.presentation-mode.hide-controls .widget-header {
+  padding-right: 0.5rem;
+}
+
+/* Mode focus */
+.presentation-focus .dashboard-widget {
+  transition: opacity 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.presentation-focus .dashboard-widget.highlighted {
+  z-index: 10;
+  box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.3), 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px
+    rgba(0, 0, 0, 0.05);
+  transform: scale(1.02);
+}
+
+.presentation-focus .dashboard-widget.dimmed {
+  opacity: 0.4;
+}
+
+/* Mode épuré */
+.presentation-clean .widget-controls,
+.presentation-clean .dashboard-controls,
+.presentation-clean .widget-drag-handle {
+  display: none !important;
+}
+
+.presentation-clean .dashboard-widget {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.presentation-clean .widget-header.hidden {
+  display: none !important;
+}
+
+.presentation-clean .widget-content {
+  padding-top: 0 !important;
+}
+
+/* Mode plein écran */
+.presentation-fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  background-color: white;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.dark .presentation-fullscreen {
+  background-color: #1a1a1a;
+}
+
+.presentation-fullscreen .presentation-controls {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 10000;
+  display: flex;
+  gap: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.dark .presentation-fullscreen .presentation-controls {
+  background-color: rgba(30, 30, 30, 0.9);
+}
+
+.presentation-fullscreen .dashboard-widget {
+  border-color: transparent !important;
+}
+
+.presentation-fullscreen .widget-controls,
+.presentation-fullscreen .dashboard-controls {
+  display: none !important;
+}
+
+.presentation-exit-button {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 10000;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.presentation-exit-button:hover {
+  opacity: 1;
+}
+
+/* Animation pour mettre en évidence les widgets */
+@keyframes pulse-highlight {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(245, 158, 11, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+
+.presentation-mode .widget.highlighted {
+  animation: pulse-highlight 2s infinite;
+}
+
+/* Animation pour le mode présentation */
+@keyframes highlight-pulse {
+  0% {
+    box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.5);
+  }
+  100% {
+    box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.3);
+  }
+}
+
+.presentation-focus .dashboard-widget.highlighted {
+  animation: highlight-pulse 2s infinite;
+}

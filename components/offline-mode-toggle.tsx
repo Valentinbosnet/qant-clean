@@ -1,82 +1,146 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Loader2, WifiOff, Wifi } from "lucide-react"
-import { isOfflineModeEnabled, setOfflineMode } from "@/lib/offline-mode"
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
+import { Cloud, CloudOff } from "lucide-react"
+import { isOfflineMode, toggleOfflineMode } from "@/lib/offline-mode"
+import type { JSX } from "react/jsx-runtime" // Import JSX to fix the undeclared variable error
 
-export function OfflineModeToggle() {
-  const [offlineMode, setOfflineModeState] = useState(false)
-  const [isClient, setIsClient] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+// Type pour les props du composant
+interface OfflineModeToggleProps {
+  showIcon?: boolean
+  showLabel?: boolean
+  variant?: "default" | "compact" | "full"
+  onToggle?: (enabled: boolean) => void
+}
 
-  // S'assurer que nous sommes côté client
-  useEffect(() => {
-    setIsClient(true)
-    if (typeof window !== "undefined") {
-      setOfflineModeState(isOfflineModeEnabled())
-    }
+export function OfflineModeToggle({
+  showIcon = true,
+  showLabel = true,
+  variant = "default",
+  onToggle,
+}: OfflineModeToggleProps): JSX.Element | null {
+  // États locaux
+  const [mounted, setMounted] = useState<boolean>(false)
+  const [offlineEnabled, setOfflineEnabled] = useState<boolean>(false)
+  const [isChanging, setIsChanging] = useState<boolean>(false)
+
+  // Effet pour initialiser l'état
+  useEffect((): void => {
+    setMounted(true)
+    setOfflineEnabled(isOfflineMode())
   }, [])
 
-  const handleToggleChange = async (checked: boolean) => {
-    setIsLoading(true)
+  // Gestionnaire de changement optimisé avec useCallback
+  const handleToggleChange = useCallback(
+    async (checked: boolean): Promise<void> => {
+      try {
+        setIsChanging(true)
 
-    // Petit délai pour montrer que quelque chose se passe
-    await new Promise((resolve) => setTimeout(resolve, 500))
+        // Appeler la fonction de toggle
+        await toggleOfflineMode(checked)
 
-    setOfflineMode(checked)
-    setOfflineModeState(checked)
-    setIsLoading(false)
-  }
+        // Mettre à jour l'état local
+        setOfflineEnabled(checked)
 
-  if (!isClient) {
+        // Appeler le callback si fourni
+        if (onToggle) {
+          onToggle(checked)
+        }
+
+        // Recharger la page pour appliquer les changements
+        window.location.reload()
+      } catch (error) {
+        console.error("Erreur lors du changement de mode:", error)
+        setIsChanging(false)
+      }
+    },
+    [onToggle],
+  )
+
+  // Mémoriser l'icône pour éviter des recréations inutiles
+  const modeIcon = useMemo(
+    () =>
+      offlineEnabled ? (
+        <CloudOff className="h-4 w-4 mr-2 text-amber-500" />
+      ) : (
+        <Cloud className="h-4 w-4 mr-2 text-blue-500" />
+      ),
+    [offlineEnabled],
+  )
+
+  // Mémoriser le texte du label pour éviter des recalculs inutiles
+  const labelText = useMemo(
+    () => (offlineEnabled ? "Mode hors ligne activé" : "Mode hors ligne désactivé"),
+    [offlineEnabled],
+  )
+
+  // Si le composant n'est pas monté, ne rien afficher
+  if (!mounted) {
     return null
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {offlineMode ? <WifiOff className="h-5 w-5" /> : <Wifi className="h-5 w-5" />}
-          Mode Hors Ligne
-        </CardTitle>
-        <CardDescription>
-          Activez le mode hors ligne lorsque vous rencontrez des problèmes de connexion.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {offlineMode ? (
-          <Alert variant="warning">
-            <AlertTitle>Mode hors ligne activé</AlertTitle>
-            <AlertDescription>
-              Vous êtes en mode hors ligne. Certaines fonctionnalités peuvent être limitées.
-            </AlertDescription>
-          </Alert>
-        ) : (
-          <Alert variant="info">
-            <AlertTitle>Mode hors ligne désactivé</AlertTitle>
-            <AlertDescription>
-              L'application essaiera de se connecter à Supabase pour l'authentification.
-            </AlertDescription>
-          </Alert>
-        )}
+  // Déterminer le contenu à afficher en fonction du variant
+  let content: JSX.Element
 
-        <div className="flex items-center space-x-2">
-          <Switch id="offline-mode" checked={offlineMode} onCheckedChange={handleToggleChange} disabled={isLoading} />
-          <Label htmlFor="offline-mode" className="flex items-center">
-            {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {offlineMode ? "Désactiver le mode hors ligne" : "Activer le mode hors ligne"}
-          </Label>
+  switch (variant) {
+    case "compact":
+      content = (
+        <div className="flex items-center space-x-1">
+          {showIcon && modeIcon}
+          <Switch
+            id="offline-mode-compact"
+            checked={offlineEnabled}
+            onCheckedChange={handleToggleChange}
+            disabled={isChanging}
+          />
         </div>
+      )
+      break
+    case "full":
+      content = (
+        <div className="flex flex-col space-y-2">
+          <div className="flex items-center space-x-2">
+            {showIcon && modeIcon}
+            <Label htmlFor="offline-mode-full" className="text-sm font-medium">
+              Mode hors ligne
+            </Label>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              {offlineEnabled
+                ? "L'application fonctionne sans connexion internet"
+                : "L'application nécessite une connexion internet"}
+            </span>
+            <Switch
+              id="offline-mode-full"
+              checked={offlineEnabled}
+              onCheckedChange={handleToggleChange}
+              disabled={isChanging}
+            />
+          </div>
+        </div>
+      )
+      break
+    default:
+      content = (
+        <div className="flex items-center space-x-2">
+          {showIcon && modeIcon}
+          {showLabel && (
+            <Label htmlFor="offline-mode-default" className="text-sm cursor-pointer">
+              {labelText}
+            </Label>
+          )}
+          <Switch
+            id="offline-mode-default"
+            checked={offlineEnabled}
+            onCheckedChange={handleToggleChange}
+            disabled={isChanging}
+          />
+        </div>
+      )
+  }
 
-        <p className="text-sm text-muted-foreground">
-          Le mode hors ligne vous permet d'utiliser l'application sans connexion à Internet. Les données seront stockées
-          localement et synchronisées lorsque la connexion sera rétablie.
-        </p>
-      </CardContent>
-    </Card>
-  )
+  return content
 }

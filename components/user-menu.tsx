@@ -1,229 +1,157 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import Link from "next/link"
+import { useAuth } from "@/contexts/auth-context"
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useAuth } from "@/contexts/auth-context"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { NetworkStatus } from "@/components/network-status"
-import { OfflineModeToggle } from "@/components/offline-mode-toggle"
-import {
-  User,
-  LogOut,
-  Settings,
-  Star,
-  FileText,
-  MessageSquare,
-  Bell,
-  HelpCircle,
-  Moon,
-  Sun,
-  Laptop,
-  BarChart3,
-} from "lucide-react"
-import { useTheme } from "next-themes"
-import { PremiumStatus } from "@/components/premium-status"
+import { Button } from "@/components/ui/button"
+import { User, Settings, LogOut, ChevronDown } from "lucide-react"
+import type { JSX } from "react/jsx-runtime" // Import JSX to fix the undeclared variable error
 
-export function UserMenu() {
-  const { user, signOut, isAuthenticated, isLoading } = useAuth()
-  const router = useRouter()
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+// Type pour les props du composant
+interface UserMenuProps {
+  showAvatar?: boolean
+  showName?: boolean
+  variant?: "default" | "compact" | "full"
+}
 
-  // Nécessaire pour éviter les erreurs d'hydratation
+export function UserMenu({
+  showAvatar = true,
+  showName = true,
+  variant = "default",
+}: UserMenuProps): JSX.Element | null {
+  // États locaux
+  const [mounted, setMounted] = useState<boolean>(false)
+
+  // Récupération du contexte d'authentification avec l'utilisateur typé
+  const { user, signOut, isAuthenticated, isLoading, isClient } = useAuth(true)
+
+  // Mémoriser le nom d'utilisateur pour éviter des recalculs inutiles
+  const displayName = useMemo((): string => {
+    if (!user) return "Utilisateur"
+
+    // Accès sécurisé aux métadonnées de l'utilisateur
+    const metadata = user.user_metadata || {}
+
+    if (metadata.full_name) return metadata.full_name
+    if (metadata.name) return metadata.name
+    if (user.email) return user.email.split("@")[0]
+
+    return "Utilisateur"
+  }, [user])
+
+  // Mémoriser l'URL de l'avatar pour éviter des recalculs inutiles
+  const avatarUrl = useMemo((): string => {
+    if (!user) return ""
+
+    // Accès sécurisé aux métadonnées de l'utilisateur
+    const metadata = user.user_metadata || {}
+
+    return metadata.avatar_url || ""
+  }, [user])
+
+  // Mémoriser les initiales pour l'avatar pour éviter des recalculs inutiles
+  const initials = useMemo((): string => {
+    if (!user) return "U"
+
+    // Accès sécurisé aux métadonnées de l'utilisateur
+    const metadata = user.user_metadata || {}
+
+    if (metadata.full_name) {
+      const parts = metadata.full_name.split(/\s+/)
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase()
+      }
+      return metadata.full_name.substring(0, 2).toUpperCase()
+    }
+
+    if (user.email) {
+      const parts = user.email.split(/[@\s]+/)
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase()
+      }
+      return user.email.substring(0, 2).toUpperCase()
+    }
+
+    return "U"
+  }, [user])
+
+  // Fonction de déconnexion optimisée avec useCallback
+  const handleSignOut = useCallback(async (): Promise<void> => {
+    try {
+      await signOut()
+    } catch (error) {
+      console.error("Erreur lors de la déconnexion:", error)
+    }
+  }, [signOut])
+
+  // Effet pour marquer le composant comme monté
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const handleSignOut = async () => {
-    await signOut()
-    router.push("/")
-  }
+  // Mémoriser l'état d'affichage du menu pour éviter des recalculs inutiles
+  const showMenu = useMemo((): boolean => {
+    return mounted && !isLoading && isAuthenticated && user !== null
+  }, [mounted, isLoading, isAuthenticated, user])
 
-  // Obtenir les initiales de l'utilisateur pour l'avatar
-  const getInitials = () => {
-    if (!user) return "U"
-
-    const name = user.user_metadata?.full_name || user.email || ""
-    if (!name) return "U"
-
-    const parts = name.split(/[\s@]+/)
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase()
-    }
-    return name.substring(0, 2).toUpperCase()
-  }
-
-  // Obtenir l'URL de l'avatar
-  const getAvatarUrl = () => {
-    return user?.user_metadata?.avatar_url || ""
-  }
-
-  if (!mounted) {
-    return null
-  }
-
-  if (isLoading) {
-    return (
-      <Button variant="ghost" size="icon" disabled>
-        <span className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-          <User className="h-4 w-4" />
-        </span>
-      </Button>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <Button asChild>
-        <Link href="/auth">Se connecter</Link>
-      </Button>
-    )
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          {user ? (
-            <div className="flex items-center gap-2">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={user.user_metadata?.avatar_url || ""} alt={user?.email || "Utilisateur"} />
-                <AvatarFallback>{getInitials()}</AvatarFallback>
-              </Avatar>
-              <div className="hidden md:flex items-center gap-2">
-                <span className="text-sm">{user?.email?.split("@")[0]}</span>
-                <PremiumStatus />
-              </div>
-            </div>
-          ) : (
-            <Avatar className="h-8 w-8">
-              <AvatarFallback>
-                <User className="h-4 w-4" />
-              </AvatarFallback>
-            </Avatar>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user?.user_metadata?.full_name || "Utilisateur"}</p>
-            <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <Link href="/profile">
-              <User className="mr-2 h-4 w-4" />
-              <span>Mon profil</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/favorites">
-              <Star className="mr-2 h-4 w-4" />
-              <span>Mes favoris</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/notes">
-              <FileText className="mr-2 h-4 w-4" />
-              <span>Mes notes</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/predictions">
-              <BarChart3 className="mr-2 h-4 w-4" />
-              <span>Prédictions</span>
-            </Link>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <Link href="/settings">
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Paramètres</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/realtime">
-              <MessageSquare className="mr-2 h-4 w-4" />
-              <span>Messages</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/notifications">
-              <Bell className="mr-2 h-4 w-4" />
-              <span>Notifications</span>
-            </Link>
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <div className="flex w-full cursor-pointer items-center">
-              {theme === "light" ? (
-                <Sun className="mr-2 h-4 w-4" />
-              ) : theme === "dark" ? (
-                <Moon className="mr-2 h-4 w-4" />
-              ) : (
-                <Laptop className="mr-2 h-4 w-4" />
-              )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <span className="flex-grow text-left">
-                    Thème: {theme === "system" ? "Système" : theme === "dark" ? "Sombre" : "Clair"}
-                  </span>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => setTheme("light")}>
-                    <Sun className="mr-2 h-4 w-4" />
-                    <span>Clair</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTheme("dark")}>
-                    <Moon className="mr-2 h-4 w-4" />
-                    <span>Sombre</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTheme("system")}>
-                    <Laptop className="mr-2 h-4 w-4" />
-                    <span>Système</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <OfflineModeToggle />
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
+  // Mémoriser le contenu du menu pour éviter des recréations inutiles
+  const menuContent = useMemo(
+    () => (
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>Mon compte</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/help">
-            <HelpCircle className="mr-2 h-4 w-4" />
-            <span>Aide</span>
+          <Link href="/profile" className="flex items-center cursor-pointer">
+            <User className="mr-2 h-4 w-4" />
+            <span>Profil</span>
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleSignOut}>
+        <DropdownMenuItem asChild>
+          <Link href="/settings" className="flex items-center cursor-pointer">
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Paramètres</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleSignOut} className="flex items-center cursor-pointer">
           <LogOut className="mr-2 h-4 w-4" />
           <span>Se déconnecter</span>
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <div className="px-2 py-1.5">
-          <NetworkStatus />
-        </div>
       </DropdownMenuContent>
+    ),
+    [handleSignOut],
+  )
+
+  // Si le composant n'est pas monté ou si l'utilisateur n'est pas authentifié, ne rien afficher
+  if (!showMenu) {
+    return null
+  }
+
+  // Rendu du menu utilisateur
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="flex items-center gap-2">
+          {showAvatar && (
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+              <AvatarFallback>{initials}</AvatarFallback>
+            </Avatar>
+          )}
+          {showName && <span>{displayName}</span>}
+          <ChevronDown className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      {menuContent}
     </DropdownMenu>
   )
 }

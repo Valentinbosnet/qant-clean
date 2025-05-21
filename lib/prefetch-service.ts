@@ -1,0 +1,617 @@
+import { CachePriority, getFromOfflineCache, saveToOfflineCache, getOfflineSettings } from "./offline-mode"
+import { analyzeStorageUsage } from "./offline-mode"
+
+// Types pour le préchargement
+export interface PrefetchConfig {
+  enabled: boolean
+  maxItemsPerSession: number
+  maxSizePerSession: number // en octets
+  minBatteryLevel: number // pourcentage minimum de batterie pour précharger
+  onlyOnWifi: boolean
+  prefetchOnLogin: boolean
+  prefetchInterval: number // en millisecondes
+  intelligentPrefetch: boolean // utiliser l'apprentissage des habitudes
+  prefetchPriority: CachePriority
+}
+
+export interface NavigationPattern {
+  fromRoute: string
+  toRoute: string
+  count: number
+  lastVisited: number
+}
+
+export interface UserBehavior {
+  frequentRoutes: Record<string, number> // route -> nombre de visites
+  navigationPatterns: NavigationPattern[]
+  timePatterns: Record<string, number[]> // route -> heures de visite (0-23)
+  lastUpdated: number
+}
+
+export interface PrefetchStats {
+  totalPrefetched: number
+  totalSize: number
+  lastPrefetchTime: number
+  successRate: number // taux de succès (données préchargées effectivement utilisées)
+  prefetchedItems: string[]
+}
+
+// Clés pour le stockage local
+const PREFETCH_CONFIG_KEY = "prefetchConfig"
+const USER_BEHAVIOR_KEY = "userBehavior"
+const PREFETCH_STATS_KEY = "prefetchStats"
+const ROUTE_HISTORY_KEY = "routeHistory"
+
+// Configuration par défaut
+const DEFAULT_PREFETCH_CONFIG: PrefetchConfig = {
+  enabled: true,
+  maxItemsPerSession: 20,
+  maxSizePerSession: 10 * 1024 * 1024, // 10MB
+  minBatteryLevel: 20, // 20%
+  onlyOnWifi: true,
+  prefetchOnLogin: true,
+  prefetchInterval: 30 * 60 * 1000, // 30 minutes
+  intelligentPrefetch: true,
+  prefetchPriority: CachePriority.LOW,
+}
+
+// Comportement utilisateur par défaut
+const DEFAULT_USER_BEHAVIOR: UserBehavior = {
+  frequentRoutes: {},
+  navigationPatterns: [],
+  timePatterns: {},
+  lastUpdated: Date.now(),
+}
+
+// Statistiques de préchargement par défaut
+const DEFAULT_PREFETCH_STATS: PrefetchStats = {
+  totalPrefetched: 0,
+  totalSize: 0,
+  lastPrefetchTime: 0,
+  successRate: 0,
+  prefetchedItems: [],
+}
+
+/**
+ * Récupère la configuration de préchargement
+ * @returns {PrefetchConfig} Configuration de préchargement
+ */
+export function getPrefetchConfig(): PrefetchConfig {
+  if (typeof window === "undefined") {
+    return DEFAULT_PREFETCH_CONFIG
+  }
+
+  try {
+    const configJson = localStorage.getItem(PREFETCH_CONFIG_KEY)
+    if (!configJson) {
+      return DEFAULT_PREFETCH_CONFIG
+    }
+
+    return { ...DEFAULT_PREFETCH_CONFIG, ...JSON.parse(configJson) }
+  } catch (error) {
+    console.error("Erreur lors de la récupération de la configuration de préchargement:", error)
+    return DEFAULT_PREFETCH_CONFIG
+  }
+}
+
+/**
+ * Sauvegarde la configuration de préchargement
+ * @param {Partial<PrefetchConfig>} config - Configuration à sauvegarder
+ */
+export function savePrefetchConfig(config: Partial<PrefetchConfig>): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    const currentConfig = getPrefetchConfig()
+    const newConfig = { ...currentConfig, ...config }
+    localStorage.setItem(PREFETCH_CONFIG_KEY, JSON.stringify(newConfig))
+  } catch (error) {
+    console.error("Erreur lors de la sauvegarde de la configuration de préchargement:", error)
+  }
+}
+
+/**
+ * Récupère le comportement de l'utilisateur
+ * @returns {UserBehavior} Comportement de l'utilisateur
+ */
+export function getUserBehavior(): UserBehavior {
+  if (typeof window === "undefined") {
+    return DEFAULT_USER_BEHAVIOR
+  }
+
+  try {
+    const behaviorJson = localStorage.getItem(USER_BEHAVIOR_KEY)
+    if (!behaviorJson) {
+      return DEFAULT_USER_BEHAVIOR
+    }
+
+    return JSON.parse(behaviorJson)
+  } catch (error) {
+    console.error("Erreur lors de la récupération du comportement utilisateur:", error)
+    return DEFAULT_USER_BEHAVIOR
+  }
+}
+
+/**
+ * Sauvegarde le comportement de l'utilisateur
+ * @param {Partial<UserBehavior>} behavior - Comportement à sauvegarder
+ */
+export function saveUserBehavior(behavior: Partial<UserBehavior>): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    const currentBehavior = getUserBehavior()
+    const newBehavior = { ...currentBehavior, ...behavior, lastUpdated: Date.now() }
+    localStorage.setItem(USER_BEHAVIOR_KEY, JSON.stringify(newBehavior))
+  } catch (error) {
+    console.error("Erreur lors de la sauvegarde du comportement utilisateur:", error)
+  }
+}
+
+/**
+ * Récupère les statistiques de préchargement
+ * @returns {PrefetchStats} Statistiques de préchargement
+ */
+export function getPrefetchStats(): PrefetchStats {
+  if (typeof window === "undefined") {
+    return DEFAULT_PREFETCH_STATS
+  }
+
+  try {
+    const statsJson = localStorage.getItem(PREFETCH_STATS_KEY)
+    if (!statsJson) {
+      return DEFAULT_PREFETCH_STATS
+    }
+
+    return JSON.parse(statsJson)
+  } catch (error) {
+    console.error("Erreur lors de la récupération des statistiques de préchargement:", error)
+    return DEFAULT_PREFETCH_STATS
+  }
+}
+
+/**
+ * Sauvegarde les statistiques de préchargement
+ * @param {Partial<PrefetchStats>} stats - Statistiques à sauvegarder
+ */
+export function savePrefetchStats(stats: Partial<PrefetchStats>): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    const currentStats = getPrefetchStats()
+    const newStats = { ...currentStats, ...stats }
+    localStorage.setItem(PREFETCH_STATS_KEY, JSON.stringify(newStats))
+  } catch (error) {
+    console.error("Erreur lors de la sauvegarde des statistiques de préchargement:", error)
+  }
+}
+
+/**
+ * Enregistre une visite de route pour l'analyse comportementale
+ * @param {string} route - Route visitée
+ */
+export function trackRouteVisit(route: string): void {
+  if (typeof window === "undefined" || !route) {
+    return
+  }
+
+  try {
+    const config = getPrefetchConfig()
+    if (!config.enabled || !config.intelligentPrefetch) {
+      return
+    }
+
+    // Récupérer l'historique des routes
+    const routeHistoryJson = sessionStorage.getItem(ROUTE_HISTORY_KEY)
+    const routeHistory = routeHistoryJson ? JSON.parse(routeHistoryJson) : []
+
+    // Ajouter la route actuelle à l'historique
+    const currentTime = Date.now()
+    routeHistory.push({ route, timestamp: currentTime })
+
+    // Limiter l'historique aux 100 dernières routes
+    if (routeHistory.length > 100) {
+      routeHistory.shift()
+    }
+
+    // Sauvegarder l'historique mis à jour
+    sessionStorage.setItem(ROUTE_HISTORY_KEY, JSON.stringify(routeHistory))
+
+    // Mettre à jour les statistiques de fréquentation
+    const behavior = getUserBehavior()
+
+    // Mettre à jour le compteur de fréquence
+    behavior.frequentRoutes[route] = (behavior.frequentRoutes[route] || 0) + 1
+
+    // Mettre à jour les modèles de temps
+    const hour = new Date().getHours()
+    if (!behavior.timePatterns[route]) {
+      behavior.timePatterns[route] = []
+    }
+    behavior.timePatterns[route].push(hour)
+
+    // Limiter le nombre d'entrées de temps
+    if (behavior.timePatterns[route].length > 50) {
+      behavior.timePatterns[route].shift()
+    }
+
+    // Mettre à jour les modèles de navigation si nous avons une route précédente
+    if (routeHistory.length >= 2) {
+      const previousRoute = routeHistory[routeHistory.length - 2].route
+      const existingPattern = behavior.navigationPatterns.find(
+        (p) => p.fromRoute === previousRoute && p.toRoute === route,
+      )
+
+      if (existingPattern) {
+        existingPattern.count++
+        existingPattern.lastVisited = currentTime
+      } else {
+        behavior.navigationPatterns.push({
+          fromRoute: previousRoute,
+          toRoute: route,
+          count: 1,
+          lastVisited: currentTime,
+        })
+      }
+
+      // Limiter le nombre de modèles de navigation
+      if (behavior.navigationPatterns.length > 100) {
+        // Trier par nombre de visites et supprimer les moins fréquents
+        behavior.navigationPatterns.sort((a, b) => b.count - a.count)
+        behavior.navigationPatterns = behavior.navigationPatterns.slice(0, 100)
+      }
+    }
+
+    // Sauvegarder le comportement mis à jour
+    saveUserBehavior(behavior)
+  } catch (error) {
+    console.error("Erreur lors du suivi de la visite de route:", error)
+  }
+}
+
+/**
+ * Prédit les routes que l'utilisateur est susceptible de visiter ensuite
+ * @param {string} currentRoute - Route actuelle
+ * @returns {string[]} Routes prédites
+ */
+export function predictNextRoutes(currentRoute: string): string[] {
+  if (typeof window === "undefined" || !currentRoute) {
+    return []
+  }
+
+  try {
+    const behavior = getUserBehavior()
+    const predictions: Array<{ route: string; score: number }> = []
+
+    // 1. Utiliser les modèles de navigation
+    const navigationPatterns = behavior.navigationPatterns
+      .filter((p) => p.fromRoute === currentRoute)
+      .sort((a, b) => b.count - a.count)
+
+    for (const pattern of navigationPatterns) {
+      // Calculer un score basé sur la fréquence et la récence
+      const frequencyScore = pattern.count
+      const recencyScore = Math.max(0, 1 - (Date.now() - pattern.lastVisited) / (7 * 24 * 60 * 60 * 1000))
+      const score = frequencyScore * 0.7 + recencyScore * 0.3
+
+      predictions.push({
+        route: pattern.toRoute,
+        score,
+      })
+    }
+
+    // 2. Ajouter les routes fréquemment visitées
+    const frequentRoutes = Object.entries(behavior.frequentRoutes)
+      .filter(([route]) => route !== currentRoute)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+
+    for (const [route, count] of frequentRoutes) {
+      // Vérifier si la route n'est pas déjà dans les prédictions
+      if (!predictions.some((p) => p.route === route)) {
+        predictions.push({
+          route,
+          score: count * 0.5, // Score plus faible que les modèles de navigation
+        })
+      }
+    }
+
+    // 3. Considérer l'heure actuelle
+    const currentHour = new Date().getHours()
+    for (const [route, hours] of Object.entries(behavior.timePatterns)) {
+      if (route === currentRoute) continue
+
+      // Calculer combien de fois cette route a été visitée à cette heure
+      const hourMatches = hours.filter((h) => Math.abs(h - currentHour) <= 1).length
+      if (hourMatches > 0) {
+        const existingPrediction = predictions.find((p) => p.route === route)
+        if (existingPrediction) {
+          existingPrediction.score += hourMatches * 0.2
+        } else {
+          predictions.push({
+            route,
+            score: hourMatches * 0.2,
+          })
+        }
+      }
+    }
+
+    // Trier par score et retourner les routes
+    predictions.sort((a, b) => b.score - a.score)
+    return predictions.slice(0, 10).map((p) => p.route)
+  } catch (error) {
+    console.error("Erreur lors de la prédiction des routes:", error)
+    return []
+  }
+}
+
+/**
+ * Vérifie si les conditions sont réunies pour effectuer un préchargement
+ * @returns {boolean} True si le préchargement est possible
+ */
+export async function canPrefetch(): Promise<boolean> {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return false
+  }
+
+  try {
+    const config = getPrefetchConfig()
+
+    // Vérifier si le préchargement est activé
+    if (!config.enabled) {
+      return false
+    }
+
+    // Vérifier si nous sommes en ligne
+    if (!navigator.onLine) {
+      return false
+    }
+
+    // Vérifier si nous sommes sur WiFi si requis
+    if (config.onlyOnWifi) {
+      // La détection du type de connexion n'est pas toujours disponible
+      // Utiliser l'API NetworkInformation si disponible
+      const connection = (navigator as any).connection
+      if (connection && connection.type && connection.type !== "wifi") {
+        return false
+      }
+    }
+
+    // Vérifier le niveau de batterie si l'API est disponible
+    if ("getBattery" in navigator) {
+      const battery = await (navigator as any).getBattery()
+      if (battery.level * 100 < config.minBatteryLevel) {
+        return false
+      }
+    }
+
+    // Vérifier l'espace disponible
+    const storageUsage = analyzeStorageUsage()
+    const offlineSettings = getOfflineSettings()
+    if (offlineSettings.storageQuota > 0 && storageUsage.usagePercentage > 80) {
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error("Erreur lors de la vérification des conditions de préchargement:", error)
+    return false
+  }
+}
+
+/**
+ * Précharge les données pour une route spécifique
+ * @param {string} route - Route à précharger
+ * @param {Function} fetchData - Fonction pour récupérer les données
+ * @returns {Promise<boolean>} True si le préchargement a réussi
+ */
+export async function prefetchRouteData(
+  route: string,
+  fetchData: () => Promise<{ key: string; data: any; type?: string; category?: string; tags?: string[] }[]>,
+): Promise<boolean> {
+  if (typeof window === "undefined" || !route) {
+    return false
+  }
+
+  try {
+    // Vérifier si nous pouvons précharger
+    const canPrefetchNow = await canPrefetch()
+    if (!canPrefetchNow) {
+      return false
+    }
+
+    const config = getPrefetchConfig()
+    const stats = getPrefetchStats()
+
+    // Récupérer les données
+    const dataItems = await fetchData()
+
+    // Limiter le nombre d'éléments préchargés
+    const itemsToCache = dataItems.slice(0, config.maxItemsPerSession)
+
+    let totalSize = 0
+    const prefetchedItems: string[] = []
+
+    // Mettre en cache chaque élément
+    for (const item of itemsToCache) {
+      // Estimer la taille des données
+      const jsonData = JSON.stringify(item.data)
+      const itemSize = new Blob([jsonData]).size
+
+      // Vérifier si nous dépassons la taille maximale
+      if (totalSize + itemSize > config.maxSizePerSession) {
+        break
+      }
+
+      // Mettre en cache les données
+      saveToOfflineCache(item.key, item.data, {
+        type: item.type || "json",
+        priority: config.prefetchPriority,
+        category: item.category || "prefetched",
+        tags: [...(item.tags || []), "prefetched", `route:${route}`],
+      })
+
+      totalSize += itemSize
+      prefetchedItems.push(item.key)
+    }
+
+    // Mettre à jour les statistiques
+    savePrefetchStats({
+      totalPrefetched: stats.totalPrefetched + prefetchedItems.length,
+      totalSize: stats.totalSize + totalSize,
+      lastPrefetchTime: Date.now(),
+      prefetchedItems: [...stats.prefetchedItems, ...prefetchedItems],
+    })
+
+    console.log(`Préchargement réussi pour la route ${route}: ${prefetchedItems.length} éléments, ${totalSize} octets`)
+    return true
+  } catch (error) {
+    console.error(`Erreur lors du préchargement des données pour la route ${route}:`, error)
+    return false
+  }
+}
+
+/**
+ * Précharge les données pour les routes prédites
+ * @param {string} currentRoute - Route actuelle
+ * @param {Record<string, () => Promise<any[]>>} routeDataFetchers - Fonctions de récupération de données par route
+ * @returns {Promise<number>} Nombre de routes préchargées
+ */
+export async function prefetchPredictedRoutes(
+  currentRoute: string,
+  routeDataFetchers: Record<
+    string,
+    () => Promise<{ key: string; data: any; type?: string; category?: string; tags?: string[] }[]>
+  >,
+): Promise<number> {
+  if (typeof window === "undefined" || !currentRoute) {
+    return 0
+  }
+
+  try {
+    // Vérifier si nous pouvons précharger
+    const canPrefetchNow = await canPrefetch()
+    if (!canPrefetchNow) {
+      return 0
+    }
+
+    // Prédire les routes suivantes
+    const predictedRoutes = predictNextRoutes(currentRoute)
+    let prefetchedCount = 0
+
+    // Précharger les données pour chaque route prédite
+    for (const route of predictedRoutes) {
+      // Vérifier si nous avons un fetcher pour cette route
+      if (routeDataFetchers[route]) {
+        const success = await prefetchRouteData(route, routeDataFetchers[route])
+        if (success) {
+          prefetchedCount++
+        }
+      }
+    }
+
+    return prefetchedCount
+  } catch (error) {
+    console.error("Erreur lors du préchargement des routes prédites:", error)
+    return 0
+  }
+}
+
+/**
+ * Marque un élément préchargé comme utilisé pour améliorer les statistiques
+ * @param {string} key - Clé de l'élément
+ */
+export function markPrefetchedItemAsUsed(key: string): void {
+  if (typeof window === "undefined" || !key) {
+    return
+  }
+
+  try {
+    const stats = getPrefetchStats()
+    if (stats.prefetchedItems.includes(key)) {
+      // Calculer le nouveau taux de succès
+      const usedItems = stats.successRate * stats.totalPrefetched + 1
+      const newSuccessRate = usedItems / stats.totalPrefetched
+
+      // Mettre à jour les statistiques
+      savePrefetchStats({
+        successRate: newSuccessRate,
+      })
+    }
+  } catch (error) {
+    console.error(`Erreur lors du marquage de l'élément préchargé ${key} comme utilisé:`, error)
+  }
+}
+
+/**
+ * Initialise le service de préchargement
+ */
+export function initPrefetchService(): () => void {
+  if (typeof window === "undefined") {
+    return () => {}
+  }
+
+  // Configurer le préchargement périodique
+  const config = getPrefetchConfig()
+  const intervalId = setInterval(async () => {
+    // Vérifier si nous pouvons précharger
+    const canPrefetchNow = await canPrefetch()
+    if (canPrefetchNow) {
+      // Le préchargement effectif sera déclenché par les composants
+      console.log("Intervalle de préchargement déclenché, prêt pour le préchargement")
+    }
+  }, config.prefetchInterval)
+
+  // Retourner une fonction pour nettoyer
+  return () => {
+    clearInterval(intervalId)
+  }
+}
+
+/**
+ * Nettoie les éléments préchargés non utilisés
+ * @returns {number} Nombre d'éléments supprimés
+ */
+export function cleanupUnusedPrefetchedItems(): number {
+  if (typeof window === "undefined") {
+    return 0
+  }
+
+  try {
+    const stats = getPrefetchStats()
+    const twoWeeksAgo = Date.now() - 14 * 24 * 60 * 60 * 1000
+
+    // Si le dernier préchargement est récent, ne rien faire
+    if (stats.lastPrefetchTime > twoWeeksAgo) {
+      return 0
+    }
+
+    // Supprimer les éléments préchargés qui n'ont pas été utilisés
+    let removedCount = 0
+    for (const key of stats.prefetchedItems) {
+      const data = getFromOfflineCache(key)
+      if (data) {
+        // Si les données existent encore, les supprimer
+        localStorage.removeItem(`offlineCache_${key}`)
+        localStorage.removeItem(`offlineCacheMeta_${key}`)
+        removedCount++
+      }
+    }
+
+    // Réinitialiser les statistiques
+    savePrefetchStats({
+      prefetchedItems: [],
+    })
+
+    return removedCount
+  } catch (error) {
+    console.error("Erreur lors du nettoyage des éléments préchargés non utilisés:", error)
+    return 0
+  }
+}

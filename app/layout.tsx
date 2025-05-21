@@ -5,7 +5,8 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { Providers } from "./providers"
 import Link from "next/link"
 import { AuthStatus } from "@/components/auth-status"
-import { BellPlus } from "lucide-react"
+import { BellPlus, Settings } from "lucide-react"
+import { OfflineIndicator } from "@/components/offline-indicator"
 
 export const metadata = {
   title: "Stock Dashboard",
@@ -50,6 +51,14 @@ export default function RootLayout({
                     <BellPlus className="h-4 w-4 mr-2" />
                     Alertes de prédiction
                   </Link>
+                  <Link
+                    href="/settings/offline"
+                    className="flex items-center px-3 py-2 text-sm font-medium rounded-md hover:bg-accent"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Paramètres
+                  </Link>
+                  <OfflineIndicator />
                   <AuthStatus />
                 </nav>
               </div>

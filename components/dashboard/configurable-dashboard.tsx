@@ -18,10 +18,13 @@ import "react-grid-layout/css/styles.css"
 import "react-resizable/css/styles.css"
 import { Widget } from "./widget"
 import { WidgetMenu } from "./widget-menu"
+import { PresetLayoutsSelector } from "./preset-layouts-selector"
+import { SaveAsPresetDialog } from "./save-as-preset-dialog"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Settings, Save, Loader2 } from "lucide-react"
+import { Settings, Save, Loader2, LayoutGrid } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
 
@@ -30,6 +33,7 @@ export function ConfigurableDashboard() {
   const { toast } = useToast()
   const searchParams = useSearchParams()
   const layoutId = searchParams.get("layout")
+  const router = useRouter()
 
   const [dashboardConfig, setDashboardConfig] = useState<DashboardLayout | null>(null)
   const [availableLayouts, setAvailableLayouts] = useState<DashboardLayout[]>([])
@@ -229,7 +233,33 @@ export function ConfigurableDashboard() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push("/dashboard/templates")}
+              className="flex items-center"
+            >
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              Modèles
+            </Button>
+
+            {/* Sélecteur de layouts prédéfinis */}
+            <PresetLayoutsSelector
+              dashboardConfig={dashboardConfig}
+              setDashboardConfig={setDashboardConfig}
+              onApply={handleSaveLayout}
+            />
+
+            {/* Dialogue pour sauvegarder comme layout prédéfini */}
+            <SaveAsPresetDialog
+              dashboardConfig={dashboardConfig}
+              onSave={() => {
+                // Rafraîchir les layouts prédéfinis si nécessaire
+              }}
+            />
+
             <WidgetMenu dashboardConfig={dashboardConfig} setDashboardConfig={setDashboardConfig} />
+
             <Button onClick={handleSaveLayout} disabled={isSaving}>
               {isSaving ? (
                 <>

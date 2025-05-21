@@ -1,99 +1,131 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Wifi, WifiOff, RefreshCw } from "lucide-react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { Wifi, WifiOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import type { JSX } from "react"
 
-export function NetworkStatus() {
-  const [isOnline, setIsOnline] = useState(true)
-  const [isVisible, setIsVisible] = useState(false)
-  const [isClient, setIsClient] = useState(false)
+// Type pour les états de connexion
+type ConnectionState = "online" | "offline" | "unknown"
 
-  useEffect(() => {
-    setIsClient(true)
+// Type pour les props du composant
+interface NetworkStatusProps {
+  showTooltip?: boolean
+  showLabel?: boolean
+  variant?: "icon" | "badge" | "full"
+}
 
-    // Vérifier l'état initial du réseau
-    setIsOnline(navigator.onLine)
+export function NetworkStatus({
+  showTooltip = true,
+  showLabel = false,
+  variant = "icon",
+}: NetworkStatusProps): JSX.Element | null {
+  // États locaux
+  const [connectionState, setConnectionState] = useState<ConnectionState>("unknown")
+  const [mounted, setMounted] = useState<boolean>(false)
 
-    // Écouter les changements d'état du réseau
-    const handleOnline = () => {
-      setIsOnline(true)
-      // Masquer après un délai si nous revenons en ligne
-      setTimeout(() => setIsVisible(false), 3000)
-    }
+  // Gestionnaires d'événements optimisés avec useCallback
+  const handleOnline = useCallback((): void => {
+    setConnectionState("online")
+  }, [])
 
-    const handleOffline = () => {
-      setIsOnline(false)
-      setIsVisible(true)
-    }
+  const handleOffline = useCallback((): void => {
+    setConnectionState("offline")
+  }, [])
 
+  // Effet pour configurer les écouteurs d'événements réseau
+  useEffect((): (() => void) => {
+    // Marquer le composant comme monté
+    setMounted(true)
+
+    // Initialiser l'état en fonction de l'état actuel du réseau
+    setConnectionState(typeof navigator !== "undefined" && navigator.onLine ? "online" : "offline")
+
+    // Ajouter les écouteurs d'événements
     window.addEventListener("online", handleOnline)
     window.addEventListener("offline", handleOffline)
 
-    // Vérifier la connectivité au serveur Supabase
-    const checkServerConnectivity = async () => {
-      try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-        if (!supabaseUrl) return
-
-        const response = await fetch(`${supabaseUrl}/rest/v1/`, {
-          method: "HEAD",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
-
-        if (!response.ok) {
-          console.warn("Problème de connexion au serveur Supabase")
-          setIsVisible(true)
-        }
-      } catch (error) {
-        console.error("Erreur lors de la vérification de la connectivité:", error)
-        setIsVisible(true)
-      }
-    }
-
-    // Vérifier la connectivité au démarrage
-    checkServerConnectivity()
-
-    return () => {
+    // Nettoyer les écouteurs lors du démontage
+    return (): void => {
       window.removeEventListener("online", handleOnline)
       window.removeEventListener("offline", handleOffline)
     }
-  }, [])
+  }, [handleOnline, handleOffline])
 
-  // Ne rien afficher côté serveur
-  if (!isClient) return null
+  // Mémoriser le contenu du tooltip pour éviter des recréations inutiles
+  const tooltipContent = useMemo(
+    () => <TooltipContent>{connectionState === "online" ? "Connecté au réseau" : "Hors ligne"}</TooltipContent>,
+    [connectionState],
+  )
 
-  // Ne rien afficher si tout va bien et que l'alerte n'est pas visible
-  if (isOnline && !isVisible) return null
+  // Mémoriser l'icône pour éviter des recréations inutiles
+  const statusIcon = useMemo(
+    () =>
+      connectionState === "online" ? (
+        <Wifi className="h-4 w-4 text-green-500" />
+      ) : (
+        <WifiOff className="h-4 w-4 text-red-500" />
+      ),
+    [connectionState],
+  )
 
-  return (
-    <Alert variant={isOnline ? "default" : "destructive"} className="mb-4">
-      {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-      <AlertTitle>{isOnline ? "Connexion rétablie" : "Problème de connexion"}</AlertTitle>
-      <AlertDescription className="flex items-center justify-between">
-        <span>
-          {isOnline
-            ? "Votre connexion internet a été rétablie. Vous pouvez continuer à utiliser l'application."
-            : "Vous semblez être hors ligne. Vérifiez votre connexion internet et réessayez."}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            if (isOnline) {
-              setIsVisible(false)
-            } else {
-              window.location.reload()
-            }
-          }}
-          className="ml-2"
+  // Mémoriser le label pour éviter des recréations inutiles
+  const statusLabel = useMemo(
+    () => (
+      <span className={connectionState === "online" ? "text-green-500" : "text-red-500"}>
+        {connectionState === "online" ? "En ligne" : "Hors ligne"}
+      </span>
+    ),
+    [connectionState],
+  )
+
+  // Si le composant n'est pas monté, ne rien afficher
+  if (!mounted) {
+    return null
+  }
+
+  // Déterminer le contenu à afficher en fonction du variant
+  let content: JSX.Element
+
+  switch (variant) {
+    case "badge":
+      content = (
+        <div
+          className={`px-2 py-1 rounded-full text-xs ${
+            connectionState === "online" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+          }`}
         >
-          {isOnline ? "Fermer" : <RefreshCw className="h-4 w-4" />}
+          {statusIcon}
+          {showLabel && <span className="ml-1">{connectionState === "online" ? "En ligne" : "Hors ligne"}</span>}
+        </div>
+      )
+      break
+    case "full":
+      content = (
+        <div className="flex items-center gap-2">
+          {statusIcon}
+          {statusLabel}
+        </div>
+      )
+      break
+    default:
+      content = (
+        <Button variant="ghost" size="icon" className="h-8 w-8">
+          {statusIcon}
         </Button>
-      </AlertDescription>
-    </Alert>
+      )
+  }
+
+  // Rendu du statut réseau
+  return showTooltip ? (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{content}</TooltipTrigger>
+        {tooltipContent}
+      </Tooltip>
+    </TooltipProvider>
+  ) : (
+    content
   )
 }

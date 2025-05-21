@@ -1,0 +1,198 @@
+/* Styles pour la prévisualisation des performances */
+.performance-preview .widget {
+  transition: all 0.3s ease;
+}
+
+/* Styles pour simuler le chargement des données */
+.performance-preview .widget-content {
+  position: relative;
+}
+
+.performance-preview.loading .widget-content::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.7);
+  z-index: 5;
+}
+
+.dark .performance-preview.loading .widget-content::before {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.performance-preview.loading .widget-content::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  z-index: 6;
+}
+
+.dark .performance-preview.loading .widget-content::after {
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #60a5fa;
+}
+
+@keyframes spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* Styles pour différentes tailles de données */
+.performance-preview.data-small .data-item {
+  height: 20px;
+}
+
+.performance-preview.data-medium .data-item {
+  height: 40px;
+}
+
+.performance-preview.data-large .data-item {
+  height: 60px;
+}
+
+.performance-preview.data-xlarge .data-item {
+  height: 80px;
+}
+
+/* Styles pour différentes vitesses d'animation */
+.performance-preview.animation-0 * {
+  transition: none !important;
+  animation: none !important;
+}
+
+.performance-preview.animation-1 * {
+  transition-duration: 1.5s !important;
+  animation-duration: 1.5s !important;
+}
+
+.performance-preview.animation-2 * {
+  transition-duration: 0.3s !important;
+  animation-duration: 0.3s !important;
+}
+
+.performance-preview.animation-3 * {
+  transition-duration: 0.1s !important;
+  animation-duration: 0.1s !important;
+}
+
+/* Indicateur de performance */
+.performance-indicator {
+  position: fixed;
+  bottom: 1rem;
+  left: 1rem;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  font-family: monospace;
+  font-size: 0.75rem;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.performance-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.performance-indicator-dot.good {
+  background-color: #10b981;
+}
+
+.performance-indicator-dot.medium {
+  background-color: #f59e0b;
+}
+
+.performance-indicator-dot.poor {
+  background-color: #ef4444;
+}
+
+/* Simulation de chargement lent */
+.performance-slow .dashboard-widget {
+  position: relative;
+}
+
+.performance-slow .dashboard-widget::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeOut 1s forwards;
+  animation-delay: var(--loading-delay, 0.5s);
+}
+
+.performance-slow .dashboard-widget::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 2px solid rgba(var(--primary-rgb), 0.3);
+  border-top-color: rgb(var(--primary-rgb));
+  z-index: 6;
+  animation: spin 1s linear infinite, fadeOut 1s forwards;
+  animation-delay: 0s, var(--loading-delay, 0.5s);
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/* Simulation de données volumineuses */
+.performance-data-low .data-point {
+  display: none;
+}
+
+.performance-data-low .data-point:nth-child(-n + 10) {
+  display: block;
+}
+
+.performance-data-medium .data-point {
+  display: none;
+}
+
+.performance-data-medium .data-point:nth-child(-n + 50) {
+  display: block;
+}
+
+.performance-data-high .data-point {
+  display: block;
+}
+
+.performance-data-extreme .data-point {
+  display: block;
+}
+
+/* Désactivation des animations */
+.performance-no-animations * {
+  transition: none !important;
+  animation: none !important;
+}

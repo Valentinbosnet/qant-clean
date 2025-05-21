@@ -1,15 +1,58 @@
 "use client"
 
 import type React from "react"
-
-import { PredictionWidget } from "./widgets/prediction-widget"
-import { FavoritesWidget } from "./widgets/favorites-widget"
-import { MarketOverviewWidget } from "./widgets/market-overview-widget"
-import { AlertsWidget } from "./widgets/alerts-widget"
-import { NotesWidget } from "./widgets/notes-widget"
-import { SectorWidget } from "./widgets/sector-widget"
-import { NewsWidget } from "./widgets/news-widget"
+import dynamic from "next/dynamic"
 import { LineChart, PieChart, TrendingUp, Star, Bell, FileText, Newspaper } from "lucide-react"
+
+// Lazy load widget components
+const PredictionWidget = dynamic(() => import("./widgets/prediction-widget"), {
+  loading: () => <WidgetSkeleton />,
+  ssr: false,
+})
+
+const FavoritesWidget = dynamic(() => import("./widgets/favorites-widget"), {
+  loading: () => <WidgetSkeleton />,
+  ssr: false,
+})
+
+const MarketOverviewWidget = dynamic(() => import("./widgets/market-overview-widget"), {
+  loading: () => <WidgetSkeleton />,
+  ssr: false,
+})
+
+const AlertsWidget = dynamic(() => import("./widgets/alerts-widget"), {
+  loading: () => <WidgetSkeleton />,
+  ssr: false,
+})
+
+const NotesWidget = dynamic(() => import("./widgets/notes-widget"), {
+  loading: () => <WidgetSkeleton />,
+  ssr: false,
+})
+
+const SectorWidget = dynamic(() => import("./widgets/sector-widget"), {
+  loading: () => <WidgetSkeleton />,
+  ssr: false,
+})
+
+const NewsWidget = dynamic(() => import("./widgets/news-widget"), {
+  loading: () => <WidgetSkeleton />,
+  ssr: false,
+})
+
+// Widget skeleton loader component
+function WidgetSkeleton() {
+  return (
+    <div className="w-full h-full min-h-[100px] animate-pulse">
+      <div className="h-4 w-1/3 bg-muted rounded mb-4"></div>
+      <div className="space-y-3">
+        <div className="h-3 bg-muted rounded"></div>
+        <div className="h-3 bg-muted rounded w-5/6"></div>
+        <div className="h-3 bg-muted rounded w-4/6"></div>
+      </div>
+    </div>
+  )
+}
 
 export type WidgetType = {
   id: string

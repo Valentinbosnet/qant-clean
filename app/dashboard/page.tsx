@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { ConfigurableDashboard } from "@/components/dashboard/configurable-dashboard"
 import { WidgetMenu } from "@/components/dashboard/widget-menu"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,26 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/contexts/auth-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
+// Dashboard loading skeleton
+function DashboardSkeleton() {
+  return (
+    <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center mb-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="space-x-2">
+          <Skeleton className="h-10 w-10 rounded-md inline-block" />
+          <Skeleton className="h-10 w-10 rounded-md inline-block" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-64 w-full rounded-md" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   const { user } = useAuth()
   const { toast } = useToast()
@@ -21,22 +41,7 @@ export default function DashboardPage() {
     useDashboard()
 
   if (isLoading) {
-    return (
-      <div className="container mx-auto p-4">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Tableau de bord</h1>
-          <div className="space-x-2">
-            <Skeleton className="h-10 w-10 rounded-md" />
-            <Skeleton className="h-10 w-10 rounded-md" />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-64 w-full rounded-md" />
-          ))}
-        </div>
-      </div>
-    )
+    return <DashboardSkeleton />
   }
 
   if (!user) {
@@ -112,7 +117,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <ConfigurableDashboard />
+      <Suspense fallback={<DashboardSkeleton />}>
+        <ConfigurableDashboard />
+      </Suspense>
 
       <WidgetMenu open={addMenuOpen} onClose={() => setAddMenuOpen(false)} onAddWidget={handleAddWidgetClick} />
 

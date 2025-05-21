@@ -2,13 +2,14 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TrendingUp, Star, LineChart, BarChart3, Newspaper, Layers, PieChart } from "lucide-react"
+import "@/styles/widget-animations.css"
 
 interface WidgetMenuProps {
   open: boolean
@@ -98,6 +99,21 @@ export function WidgetMenu({ open, onClose, onAddWidget }: WidgetMenuProps) {
   const [selectedWidget, setSelectedWidget] = useState<WidgetTypeInfo | null>(null)
   const [widgetTitle, setWidgetTitle] = useState("")
   const [isAdding, setIsAdding] = useState(false)
+  const [animateItems, setAnimateItems] = useState(false)
+  // Remove this line:
+  // const dialogRef = useRef<HTMLDivElement>(null)
+
+  // Animation d'entrée pour les éléments
+  useEffect(() => {
+    if (open) {
+      const timer = setTimeout(() => {
+        setAnimateItems(true)
+      }, 100)
+      return () => clearTimeout(timer)
+    } else {
+      setAnimateItems(false)
+    }
+  }, [open])
 
   const filteredWidgets = availableWidgets.filter(
     (widget) =>
@@ -142,7 +158,8 @@ export function WidgetMenu({ open, onClose, onAddWidget }: WidgetMenuProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl w-[90vw]">
+      {/* Fix the DialogContent component by removing the ref: */}
+      <DialogContent className="max-w-3xl w-[90vw] fade-in">
         <DialogHeader>
           <DialogTitle>Ajouter un widget</DialogTitle>
         </DialogHeader>
@@ -153,7 +170,7 @@ export function WidgetMenu({ open, onClose, onAddWidget }: WidgetMenuProps) {
               placeholder="Rechercher un widget..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="my-2"
+              className="my-2 transition-all duration-200 focus:scale-[1.01]"
             />
 
             <Tabs defaultValue="all">
@@ -166,13 +183,14 @@ export function WidgetMenu({ open, onClose, onAddWidget }: WidgetMenuProps) {
               </TabsList>
 
               <TabsContent value="all">
-                <WidgetGrid widgets={filteredWidgets} onSelect={handleSelectWidget} />
+                <WidgetGrid widgets={filteredWidgets} onSelect={handleSelectWidget} animateItems={animateItems} />
               </TabsContent>
 
               <TabsContent value="stocks">
                 <WidgetGrid
                   widgets={filteredWidgets.filter((w) => w.category === "stocks")}
                   onSelect={handleSelectWidget}
+                  animateItems={animateItems}
                 />
               </TabsContent>
 
@@ -180,6 +198,7 @@ export function WidgetMenu({ open, onClose, onAddWidget }: WidgetMenuProps) {
                 <WidgetGrid
                   widgets={filteredWidgets.filter((w) => w.category === "market")}
                   onSelect={handleSelectWidget}
+                  animateItems={animateItems}
                 />
               </TabsContent>
 
@@ -187,6 +206,7 @@ export function WidgetMenu({ open, onClose, onAddWidget }: WidgetMenuProps) {
                 <WidgetGrid
                   widgets={filteredWidgets.filter((w) => w.category === "portfolio")}
                   onSelect={handleSelectWidget}
+                  animateItems={animateItems}
                 />
               </TabsContent>
 
@@ -194,12 +214,15 @@ export function WidgetMenu({ open, onClose, onAddWidget }: WidgetMenuProps) {
                 <WidgetGrid
                   widgets={filteredWidgets.filter((w) => w.category === "news")}
                   onSelect={handleSelectWidget}
+                  animateItems={animateItems}
                 />
               </TabsContent>
             </Tabs>
           </>
         ) : (
-          <div className="space-y-4">
+          <div
+            className={`space-y-4 transition-all duration-300 ${animateItems ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+          >
             <div className="flex items-center gap-3 p-3 bg-muted/20 rounded-lg">
               <div className="bg-primary/10 p-2 rounded-full">{selectedWidget.icon}</div>
               <div>
@@ -217,6 +240,7 @@ export function WidgetMenu({ open, onClose, onAddWidget }: WidgetMenuProps) {
                 placeholder="Titre personnalisé"
                 value={widgetTitle}
                 onChange={(e) => setWidgetTitle(e.target.value)}
+                className="transition-all duration-200 focus:scale-[1.01]"
               />
             </div>
 
@@ -224,7 +248,11 @@ export function WidgetMenu({ open, onClose, onAddWidget }: WidgetMenuProps) {
               <Button variant="outline" onClick={handleCancel} disabled={isAdding}>
                 Annuler
               </Button>
-              <Button onClick={handleAddWidget} disabled={isAdding}>
+              <Button
+                onClick={handleAddWidget}
+                disabled={isAdding}
+                className="transition-all duration-200 hover:scale-105"
+              >
                 {isAdding ? "Ajout en cours..." : "Ajouter le widget"}
               </Button>
             </DialogFooter>
@@ -238,9 +266,11 @@ export function WidgetMenu({ open, onClose, onAddWidget }: WidgetMenuProps) {
 function WidgetGrid({
   widgets,
   onSelect,
+  animateItems,
 }: {
   widgets: WidgetTypeInfo[]
   onSelect: (widget: WidgetTypeInfo) => void
+  animateItems: boolean
 }) {
   if (widgets.length === 0) {
     return (
@@ -253,11 +283,14 @@ function WidgetGrid({
   return (
     <ScrollArea className="h-[400px] pr-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {widgets.map((widget) => (
+        {widgets.map((widget, index) => (
           <Button
             key={widget.id}
             variant="outline"
-            className="h-auto p-4 justify-start gap-3 hover:bg-muted"
+            className={`h-auto p-4 justify-start gap-3 hover:bg-muted transition-all duration-300 ${
+              animateItems ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+            }`}
+            style={{ transitionDelay: `${index * 50}ms` }}
             onClick={() => onSelect(widget)}
           >
             <div className="bg-primary/10 p-2 rounded-full">{widget.icon}</div>
