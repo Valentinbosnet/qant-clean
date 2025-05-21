@@ -1,120 +1,95 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { BellRing, Bell, BellOff } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { BellOffIcon, Settings2Icon } from "lucide-react"
 
 export default function AlertsPage() {
+  // In a real app, this would fetch actual alerts data
+  const mockAlerts = [
+    { id: 1, symbol: "AAPL", type: "price", condition: "above", value: 180, enabled: true },
+    { id: 2, symbol: "MSFT", type: "price", condition: "below", value: 350, enabled: false },
+    { id: 3, symbol: "TSLA", type: "volume", condition: "above", value: 100000000, enabled: true },
+  ]
+
   return (
-    <div className="max-w-5xl mx-auto p-4 space-y-6">
-      <h1 className="text-3xl font-bold">Alerts</h1>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <BellRing className="mr-2 h-5 w-5" />
-              Active Alerts
-            </CardTitle>
-            <CardDescription>Alerts that are currently active</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="p-3 border rounded bg-yellow-50">
-                <div className="flex items-start gap-2">
-                  <div className="p-1 bg-yellow-100 rounded-full">
-                    <BellRing className="h-4 w-4 text-yellow-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-yellow-800">AAPL price alert</h3>
-                    <p className="text-sm text-yellow-700">Price dropped below $150</p>
-                    <div className="flex justify-between items-center mt-2">
-                      <span className="text-xs text-yellow-600">Triggered 25 minutes ago</span>
-                      <Button variant="ghost" size="sm">
-                        Dismiss
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 border rounded bg-blue-50">
-                <div className="flex items-start gap-2">
-                  <div className="p-1 bg-blue-100 rounded-full">
-                    <BellRing className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-blue-800">Market update</h3>
-                    <p className="text-sm text-blue-700">S&P 500 gained 1.2% today</p>
-                    <div className="flex justify-between items-center mt-2">
-                      <span className="text-xs text-blue-600">Triggered 2 hours ago</span>
-                      <Button variant="ghost" size="sm">
-                        Dismiss
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Bell className="mr-2 h-5 w-5" />
-              Alert Settings
-            </CardTitle>
-            <CardDescription>Configure your alert preferences</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 border rounded">
-                <div>
-                  <p className="font-medium">Price alerts</p>
-                  <p className="text-sm text-muted-foreground">Get notified about price changes</p>
-                </div>
-                <div className="h-4 w-8 bg-green-500 rounded-full relative">
-                  <div className="absolute right-0.5 top-0.5 h-3 w-3 bg-white rounded-full"></div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-3 border rounded">
-                <div>
-                  <p className="font-medium">Market news</p>
-                  <p className="text-sm text-muted-foreground">Daily market updates</p>
-                </div>
-                <div className="h-4 w-8 bg-green-500 rounded-full relative">
-                  <div className="absolute right-0.5 top-0.5 h-3 w-3 bg-white rounded-full"></div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-3 border rounded">
-                <div>
-                  <p className="font-medium">Prediction alerts</p>
-                  <p className="text-sm text-muted-foreground">AI-based stock predictions</p>
-                </div>
-                <div className="h-4 w-8 bg-green-500 rounded-full relative">
-                  <div className="absolute right-0.5 top-0.5 h-3 w-3 bg-white rounded-full"></div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="container py-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Alerts</h1>
+        <Button variant="outline" size="sm">
+          <Settings2Icon className="h-4 w-4 mr-2" />
+          Settings
+        </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <BellOff className="mr-2 h-5 w-5" />
-            Muted Alerts
-          </CardTitle>
-          <CardDescription>Alerts you've temporarily muted</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="p-6 text-center text-muted-foreground">
-            <p>No muted alerts</p>
+      <Tabs defaultValue="active">
+        <TabsList className="mb-4">
+          <TabsTrigger value="active">Active Alerts</TabsTrigger>
+          <TabsTrigger value="history">Alert History</TabsTrigger>
+          <TabsTrigger value="create">Create Alert</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="active">
+          <div className="grid gap-4">
+            {(mockAlerts || []).map((alert) => (
+              <Card key={alert.id}>
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-lg">{alert.symbol}</CardTitle>
+                    <Switch checked={alert.enabled} />
+                  </div>
+                  <CardDescription>{alert.type === "price" ? "Price Alert" : "Volume Alert"}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p>
+                    Trigger when {alert.symbol} {alert.type} is {alert.condition} {alert.type === "price" ? "$" : ""}
+                    {alert.type === "volume" ? alert.value.toLocaleString() : alert.value}
+                  </p>
+                  <div className="flex justify-end mt-2">
+                    <Button variant="ghost" size="sm">
+                      Edit
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-destructive">
+                      Delete
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            {(mockAlerts || []).length === 0 && (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-8">
+                  <BellOffIcon className="h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground mb-4">No active alerts</p>
+                  <Button>Create Your First Alert</Button>
+                </CardContent>
+              </Card>
+            )}
           </div>
-        </CardContent>
-      </Card>
+        </TabsContent>
+
+        <TabsContent value="history">
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-8">
+              <p className="text-muted-foreground mb-4">No alert history available</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="create">
+          <Card>
+            <CardHeader>
+              <CardTitle>Create New Alert</CardTitle>
+              <CardDescription>Set up notifications for price changes and other events</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">Alert creation form would go here</p>
+              <Button>Save Alert</Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

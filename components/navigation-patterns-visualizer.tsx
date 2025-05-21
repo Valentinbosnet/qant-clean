@@ -1,43 +1,85 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+
+// Mock data for navigation patterns
+const defaultNavigationData = [
+  { path: "/dashboard", visits: 120, avgTime: 240 },
+  { path: "/market-predictions", visits: 80, avgTime: 180 },
+  { path: "/favorites", visits: 60, avgTime: 120 },
+  { path: "/alerts", visits: 40, avgTime: 90 },
+  { path: "/settings", visits: 30, avgTime: 60 },
+]
 
 export function NavigationPatternsVisualizer() {
-  const [patterns, setPatterns] = useState([
-    { path: "/dashboard", visits: 42, lastVisit: new Date().toISOString() },
-    { path: "/stocks/AAPL", visits: 23, lastVisit: new Date().toISOString() },
-    { path: "/predictions", visits: 18, lastVisit: new Date().toISOString() },
-  ])
+  const [navigationData, setNavigationData] = useState(defaultNavigationData)
+  const [activeTab, setActiveTab] = useState("visits")
+
+  // In a real app, this would fetch actual navigation data
+  useEffect(() => {
+    // Simulate loading data
+    const timer = setTimeout(() => {
+      // This would be an API call in a real app
+      setNavigationData(defaultNavigationData)
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [])
 
   return (
-    <Card>
+    <Card className="w-full">
       <CardHeader>
         <CardTitle>Navigation Patterns</CardTitle>
-        <CardDescription>Visualize your app navigation patterns to optimize prefetching</CardDescription>
+        <CardDescription>Analyze how users navigate through your application</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {patterns.map((pattern, index) => (
-            <div key={index} className="flex items-center justify-between p-3 border rounded">
-              <div>
-                <p className="font-medium">{pattern.path}</p>
-                <p className="text-sm text-muted-foreground">{pattern.visits} visits</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm">Last visit</p>
-                <p className="text-xs text-muted-foreground">{new Date(pattern.lastVisit).toLocaleString()}</p>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-4">
+            <TabsTrigger value="visits">Page Visits</TabsTrigger>
+            <TabsTrigger value="time">Time Spent</TabsTrigger>
+            <TabsTrigger value="flow">User Flow</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="visits" className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={navigationData || []}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="path" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="visits" fill="#8884d8" name="Visits" />
+              </BarChart>
+            </ResponsiveContainer>
+          </TabsContent>
+
+          <TabsContent value="time" className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={navigationData || []}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="path" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="avgTime" fill="#82ca9d" name="Avg. Time (seconds)" />
+              </BarChart>
+            </ResponsiveContainer>
+          </TabsContent>
+
+          <TabsContent value="flow" className="h-80">
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <p className="text-muted-foreground mb-4">
+                  User flow visualization is not available in the demo version
+                </p>
+                <Button variant="outline">Upgrade to Pro</Button>
               </div>
             </div>
-          ))}
-        </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
-      <CardFooter>
-        <Button variant="outline">Reset Analytics</Button>
-      </CardFooter>
     </Card>
   )
 }
-
-export default NavigationPatternsVisualizer
