@@ -1,34 +1,45 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Info } from "lucide-react"
 
 // Mock data for navigation patterns
-const defaultNavigationData = [
-  { path: "/dashboard", visits: 120, avgTime: 240 },
-  { path: "/market-predictions", visits: 80, avgTime: 180 },
-  { path: "/favorites", visits: 60, avgTime: 120 },
-  { path: "/alerts", visits: 40, avgTime: 90 },
-  { path: "/settings", visits: 30, avgTime: 60 },
-]
+const mockNavigationData = {
+  frequentRoutes: [
+    { route: "/dashboard", count: 120 },
+    { route: "/market-predictions", count: 80 },
+    { route: "/favorites", count: 60 },
+    { route: "/alerts", count: 40 },
+    { route: "/settings", count: 30 },
+  ],
+  patterns: [
+    { from: "/dashboard", to: "/market-predictions", count: 45, lastVisited: "2023-05-20T10:30:00Z" },
+    { from: "/market-predictions", to: "/favorites", count: 32, lastVisited: "2023-05-20T11:15:00Z" },
+    { from: "/dashboard", to: "/alerts", count: 28, lastVisited: "2023-05-20T09:45:00Z" },
+    { from: "/favorites", to: "/settings", count: 15, lastVisited: "2023-05-20T14:20:00Z" },
+  ],
+  predictions: [
+    { currentRoute: "/dashboard", predictedRoutes: ["/market-predictions", "/alerts", "/favorites"] },
+    { currentRoute: "/market-predictions", predictedRoutes: ["/favorites", "/dashboard", "/alerts"] },
+    { currentRoute: "/favorites", predictedRoutes: ["/market-predictions", "/settings", "/dashboard"] },
+  ],
+}
 
 export function NavigationPatternsVisualizer() {
-  const [navigationData, setNavigationData] = useState(defaultNavigationData)
-  const [activeTab, setActiveTab] = useState("visits")
+  const [activeTab, setActiveTab] = useState("routes")
+  const [selectedRoute, setSelectedRoute] = useState("")
 
-  // In a real app, this would fetch actual navigation data
-  useEffect(() => {
-    // Simulate loading data
-    const timer = setTimeout(() => {
-      // This would be an API call in a real app
-      setNavigationData(defaultNavigationData)
-    }, 500)
+  // Safe access to mock data with fallbacks
+  const frequentRoutes = mockNavigationData?.frequentRoutes || []
+  const patterns = mockNavigationData?.patterns || []
+  const predictions = mockNavigationData?.predictions || []
 
-    return () => clearTimeout(timer)
-  }, [])
+  // Find predictions for selected route
+  const routePredictions = predictions.find((p) => p.currentRoute === selectedRoute)?.predictedRoutes || []
 
   return (
     <Card className="w-full">
@@ -39,43 +50,108 @@ export function NavigationPatternsVisualizer() {
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-4">
-            <TabsTrigger value="visits">Page Visits</TabsTrigger>
-            <TabsTrigger value="time">Time Spent</TabsTrigger>
-            <TabsTrigger value="flow">User Flow</TabsTrigger>
+            <TabsTrigger value="routes">Frequent Routes</TabsTrigger>
+            <TabsTrigger value="patterns">Navigation Patterns</TabsTrigger>
+            <TabsTrigger value="predictions">Route Predictions</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="visits" className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={navigationData || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="path" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="visits" fill="#8884d8" name="Visits" />
-              </BarChart>
-            </ResponsiveContainer>
+          <TabsContent value="routes">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {frequentRoutes.length > 0 ? (
+                frequentRoutes.map((item, index) => (
+                  <div
+                    key={index}
+                    className="p-3 bg-gray-50 rounded flex justify-between items-center cursor-pointer hover:bg-gray-100"
+                    onClick={() => setSelectedRoute(item.route)}
+                  >
+                    <span className="font-medium truncate">{item.route}</span>
+                    <span className="text-sm bg-gray-200 px-2 py-1 rounded-full">{item.count} visits</span>
+                  </div>
+                ))
+              ) : (
+                <div className="col-span-2">
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>No data available</AlertTitle>
+                    <AlertDescription>Start browsing the application to collect navigation data.</AlertDescription>
+                  </Alert>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
-          <TabsContent value="time" className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={navigationData || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="path" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="avgTime" fill="#82ca9d" name="Avg. Time (seconds)" />
-              </BarChart>
-            </ResponsiveContainer>
+          <TabsContent value="patterns">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="text-left p-2">From</th>
+                    <th className="text-left p-2">To</th>
+                    <th className="text-left p-2">Count</th>
+                    <th className="text-left p-2">Last Visit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {patterns.length > 0 ? (
+                    patterns.map((pattern, index) => (
+                      <tr key={index} className="border-t hover:bg-gray-50">
+                        <td className="p-2">{pattern.from}</td>
+                        <td className="p-2">{pattern.to}</td>
+                        <td className="p-2">{pattern.count}</td>
+                        <td className="p-2">{new Date(pattern.lastVisited).toLocaleString()}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="p-4 text-center text-gray-500">
+                        No navigation patterns recorded yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </TabsContent>
 
-          <TabsContent value="flow" className="h-80">
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <p className="text-muted-foreground mb-4">
-                  User flow visualization is not available in the demo version
-                </p>
-                <Button variant="outline">Upgrade to Pro</Button>
+          <TabsContent value="predictions">
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-50 rounded">
+                <h3 className="font-medium mb-2">Select a route to see predictions</h3>
+                <div className="flex flex-wrap gap-2">
+                  {frequentRoutes.map((item, index) => (
+                    <Button
+                      key={index}
+                      variant={selectedRoute === item.route ? "default" : "outline"}
+                      onClick={() => setSelectedRoute(item.route)}
+                    >
+                      {item.route}
+                    </Button>
+                  ))}
+                </div>
               </div>
+
+              {selectedRoute ? (
+                <div className="p-4 border rounded">
+                  <h3 className="font-medium mb-2">Predictions for {selectedRoute}</h3>
+                  {routePredictions.length > 0 ? (
+                    <div className="space-y-2">
+                      {routePredictions.map((route, index) => (
+                        <div key={index} className="p-2 bg-blue-50 rounded border border-blue-100">
+                          {route} <span className="text-xs text-blue-600 ml-2">Prediction #{index + 1}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No predictions available for this route</p>
+                  )}
+                </div>
+              ) : (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Select a route</AlertTitle>
+                  <AlertDescription>Select a route above to see predicted next routes.</AlertDescription>
+                </Alert>
+              )}
             </div>
           </TabsContent>
         </Tabs>

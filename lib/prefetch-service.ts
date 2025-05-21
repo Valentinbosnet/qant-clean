@@ -176,7 +176,7 @@ export interface NavigationPattern {
 export interface UserBehavior {
   frequentRoutes: Record<string, number> // route -> nombre de visites
   navigationPatterns: NavigationPattern[]
-  timePatterns: Record<string, number[]> // route -> heures de visite (0-23)
+  routePredictions: Record<string, string[]> // route -> predicted routes
   lastUpdated: number
 }
 
@@ -212,7 +212,7 @@ const DEFAULT_PREFETCH_CONFIG: PrefetchConfig = {
 const DEFAULT_USER_BEHAVIOR: UserBehavior = {
   frequentRoutes: {},
   navigationPatterns: [],
-  timePatterns: {},
+  routePredictions: {},
   lastUpdated: Date.now(),
 }
 
@@ -382,18 +382,6 @@ export function trackRouteVisit(route: string): void {
     // Mettre à jour le compteur de fréquence
     behavior.frequentRoutes[route] = (behavior.frequentRoutes[route] || 0) + 1
 
-    // Mettre à jour les modèles de temps
-    const hour = new Date().getHours()
-    if (!behavior.timePatterns[route]) {
-      behavior.timePatterns[route] = []
-    }
-    behavior.timePatterns[route].push(hour)
-
-    // Limiter le nombre d'entrées de temps
-    if (behavior.timePatterns[route].length > 50) {
-      behavior.timePatterns[route].shift()
-    }
-
     // Mettre à jour les modèles de navigation si nous avons une route précédente
     if (routeHistory.length >= 2) {
       const previousRoute = routeHistory[routeHistory.length - 2].route
@@ -440,67 +428,96 @@ export function predictNextRoutes(currentRoute: string): string[] {
 
   try {
     const behavior = getUserBehavior()
-    const predictions: Array<{ route: string; score: number }> = []
-
-    // 1. Utiliser les modèles de navigation
-    const navigationPatterns = behavior.navigationPatterns
-      .filter((p) => p.fromRoute === currentRoute)
-      .sort((a, b) => b.count - a.count)
-
-    for (const pattern of navigationPatterns) {
-      // Calculer un score basé sur la fréquence et la récence
-      const frequencyScore = pattern.count
-      const recencyScore = Math.max(0, 1 - (Date.now() - pattern.lastVisited) / (7 * 24 * 60 * 60 * 1000))
-      const score = frequencyScore * 0.7 + recencyScore * 0.3
-
-      predictions.push({
-        route: pattern.toRoute,
-        score,
-      })
-    }
-
-    // 2. Ajouter les routes fréquemment visitées
-    const frequentRoutes = Object.entries(behavior.frequentRoutes)
-      .filter(([route]) => route !== currentRoute)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-
-    for (const [route, count] of frequentRoutes) {
-      // Vérifier si la route n'est pas déjà dans les prédictions
-      if (!predictions.some((p) => p.route === route)) {
-        predictions.push({
-          route,
-          score: count * 0.5, // Score plus faible que les modèles de navigation
-        })
-      }
-    }
-
-    // 3. Considérer l'heure actuelle
-    const currentHour = new Date().getHours()
-    for (const [route, hours] of Object.entries(behavior.timePatterns)) {
-      if (route === currentRoute) continue
-
-      // Calculer combien de fois cette route a été visitée à cette heure
-      const hourMatches = hours.filter((h) => Math.abs(h - currentHour) <= 1).length
-      if (hourMatches > 0) {
-        const existingPrediction = predictions.find((p) => p.route === route)
-        if (existingPrediction) {
-          existingPrediction.score += hourMatches * 0.2
-        } else {
-          predictions.push({
-            route,
-            score: hourMatches * 0.2,
-          })
-        }
-      }
-    }
-
-    // Trier par score et retourner les routes
-    predictions.sort((a, b) => b.score - a.score)
-    return predictions.slice(0, 10).map((p) => p.route)
+    return behavior.routePredictions[currentRoute] || []
   } catch (error) {
     console.error("Erreur lors de la prédiction des routes:", error)
     return []
+  }
+}
+
+/**
+ * Record a navigation event
+ */
+export function recordNavigation(fromRoute: string, toRoute: string): void {
+  if (typeof window === "undefined" || !fromRoute || !toRoute) {
+    return
+  }
+
+  try {
+    const behavior = getUserBehavior()
+    const existingPattern = behavior.navigationPatterns.find((p) => p.fromRoute === fromRoute && p.toRoute === toRoute)
+
+    if (existingPattern) {
+      existingPattern.count++
+      existingPattern.lastVisited = Date.now()
+    } else {
+      behavior.navigationPatterns.push({
+        fromRoute,
+        toRoute,
+        count: 1,
+        lastVisited: Date.now(),
+      })
+    }
+
+    // Update route predictions
+    if (!behavior.routePredictions[fromRoute]) {
+      behavior.routePredictions[fromRoute] = []
+    }
+    if (!behavior.routePredictions[fromRoute].includes(toRoute)) {
+      behavior.routePredictions[fromRoute].push(toRoute)
+    }
+
+    saveUserBehavior(behavior)
+    console.log(`Navigation recorded: ${fromRoute} -> ${toRoute}`)
+  } catch (error) {
+    console.error("Error recording navigation:", error)
+  }
+}
+
+/**
+ * Clear all navigation data
+ */
+export function clearNavigationData(): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    const behavior = getUserBehavior()
+    behavior.navigationPatterns = []
+    behavior.routePredictions = {}
+    saveUserBehavior(behavior)
+    console.log("Navigation data cleared")
+  } catch (error) {
+    console.error("Error clearing navigation data:", error)
+  }
+}
+
+/**
+ * Get prefetch settings
+ */
+export function getPrefetchSettings() {
+  return {
+    enabled: true,
+    maxPrefetchCount: 3,
+    prefetchThreshold: 0.2,
+    prefetchOnHover: true,
+  }
+}
+
+/**
+ * Update prefetch settings
+ */
+export function updatePrefetchSettings(settings: any): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    console.log("Prefetch settings updated", settings)
+    // In a real app, this would update the settings
+  } catch (error) {
+    console.error("Error updating prefetch settings:", error)
   }
 }
 
