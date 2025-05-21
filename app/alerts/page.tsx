@@ -1,291 +1,118 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { AlertCircle, AlertTriangle, ArrowLeft, Check, Clock, Search, Trash2 } from "lucide-react"
-import { alertsService, type PriceAlert } from "@/lib/alerts-service"
-import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
-import { formatPrice } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { BellRing, Bell, BellOff } from "lucide-react"
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState<PriceAlert[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const { toast } = useToast()
-
-  useEffect(() => {
-    loadAlerts()
-  }, [])
-
-  const loadAlerts = async () => {
-    setLoading(true)
-    try {
-      const allAlerts = await alertsService.getAlerts()
-      setAlerts(allAlerts)
-    } catch (error) {
-      console.error("Error loading alerts:", error)
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger les alertes",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleDeleteAlert = async (id: string) => {
-    try {
-      await alertsService.deleteAlert(id)
-      setAlerts(alerts.filter((alert) => alert.id !== id))
-      toast({
-        title: "Alerte supprimée",
-        description: "L'alerte a été supprimée avec succès",
-        variant: "success",
-      })
-    } catch (error) {
-      console.error("Error deleting alert:", error)
-      toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de la suppression de l'alerte",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleDeleteAllTriggered = async () => {
-    try {
-      const triggeredAlerts = alerts.filter((alert) => alert.triggered)
-      for (const alert of triggeredAlerts) {
-        await alertsService.deleteAlert(alert.id)
-      }
-      setAlerts(alerts.filter((alert) => !alert.triggered))
-      toast({
-        title: "Alertes supprimées",
-        description: `${triggeredAlerts.length} alertes déclenchées ont été supprimées`,
-        variant: "success",
-      })
-    } catch (error) {
-      console.error("Error deleting triggered alerts:", error)
-      toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de la suppression des alertes",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const filteredAlerts = alerts.filter(
-    (alert) =>
-      alert.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      alert.message.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
-
-  const activeAlerts = filteredAlerts.filter((alert) => !alert.triggered)
-  const triggeredAlerts = filteredAlerts.filter((alert) => alert.triggered)
-
-  const getAlertTypeLabel = (type: string) => {
-    switch (type) {
-      case "price":
-        return "Prix"
-      case "prediction":
-        return "Prédiction"
-      case "technical":
-        return "Technique"
-      case "custom":
-        return "Personnalisée"
-      default:
-        return type
-    }
-  }
-
-  const getAlertConditionLabel = (condition: string) => {
-    switch (condition) {
-      case "above":
-        return "Au-dessus de"
-      case "below":
-        return "En-dessous de"
-      case "change":
-        return "Variation de"
-      case "prediction":
-        return "Prédiction de"
-      case "technical":
-        return "Signal technique"
-      default:
-        return condition
-    }
-  }
-
-  const getAlertValueLabel = (alert: PriceAlert) => {
-    switch (alert.condition) {
-      case "above":
-      case "below":
-        return formatPrice(alert.value)
-      case "change":
-      case "prediction":
-        return `${alert.value}%`
-      case "technical":
-        return alert.value > 0 ? "Haussier" : "Baissier"
-      default:
-        return alert.value.toString()
-    }
-  }
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center">
-          <Button variant="ghost" size="icon" asChild className="mr-2">
-            <Link href="/">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
-          <h1 className="text-3xl font-bold">Gestion des alertes</h1>
-        </div>
+    <div className="max-w-5xl mx-auto p-4 space-y-6">
+      <h1 className="text-3xl font-bold">Alerts</h1>
 
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Rechercher..."
-              className="pl-8 w-64"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          {triggeredAlerts.length > 0 && (
-            <Button variant="outline" onClick={handleDeleteAllTriggered}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Supprimer les alertes déclenchées ({triggeredAlerts.length})
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Alertes actives</CardTitle>
-          <CardDescription>{activeAlerts.length} alertes en attente de déclenchement</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-            </div>
-          ) : activeAlerts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <AlertCircle className="h-10 w-10 text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">Aucune alerte active</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Symbole</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Condition</TableHead>
-                  <TableHead>Message</TableHead>
-                  <TableHead>Expiration</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {activeAlerts.map((alert) => (
-                  <TableRow key={alert.id}>
-                    <TableCell className="font-medium">{alert.symbol}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{getAlertTypeLabel(alert.type)}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {getAlertConditionLabel(alert.condition)} {getAlertValueLabel(alert)}
-                    </TableCell>
-                    <TableCell>{alert.message}</TableCell>
-                    <TableCell>
-                      {alert.expires ? (
-                        <div className="flex items-center">
-                          <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
-                          {new Date(alert.expires).toLocaleDateString()}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">Jamais</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteAlert(alert.id)}>
-                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <BellRing className="mr-2 h-5 w-5" />
+              Active Alerts
+            </CardTitle>
+            <CardDescription>Alerts that are currently active</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="p-3 border rounded bg-yellow-50">
+                <div className="flex items-start gap-2">
+                  <div className="p-1 bg-yellow-100 rounded-full">
+                    <BellRing className="h-4 w-4 text-yellow-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-yellow-800">AAPL price alert</h3>
+                    <p className="text-sm text-yellow-700">Price dropped below $150</p>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-xs text-yellow-600">Triggered 25 minutes ago</span>
+                      <Button variant="ghost" size="sm">
+                        Dismiss
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 border rounded bg-blue-50">
+                <div className="flex items-start gap-2">
+                  <div className="p-1 bg-blue-100 rounded-full">
+                    <BellRing className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-blue-800">Market update</h3>
+                    <p className="text-sm text-blue-700">S&P 500 gained 1.2% today</p>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-xs text-blue-600">Triggered 2 hours ago</span>
+                      <Button variant="ghost" size="sm">
+                        Dismiss
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Bell className="mr-2 h-5 w-5" />
+              Alert Settings
+            </CardTitle>
+            <CardDescription>Configure your alert preferences</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 border rounded">
+                <div>
+                  <p className="font-medium">Price alerts</p>
+                  <p className="text-sm text-muted-foreground">Get notified about price changes</p>
+                </div>
+                <div className="h-4 w-8 bg-green-500 rounded-full relative">
+                  <div className="absolute right-0.5 top-0.5 h-3 w-3 bg-white rounded-full"></div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 border rounded">
+                <div>
+                  <p className="font-medium">Market news</p>
+                  <p className="text-sm text-muted-foreground">Daily market updates</p>
+                </div>
+                <div className="h-4 w-8 bg-green-500 rounded-full relative">
+                  <div className="absolute right-0.5 top-0.5 h-3 w-3 bg-white rounded-full"></div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 border rounded">
+                <div>
+                  <p className="font-medium">Prediction alerts</p>
+                  <p className="text-sm text-muted-foreground">AI-based stock predictions</p>
+                </div>
+                <div className="h-4 w-8 bg-green-500 rounded-full relative">
+                  <div className="absolute right-0.5 top-0.5 h-3 w-3 bg-white rounded-full"></div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Historique des alertes</CardTitle>
-          <CardDescription>{triggeredAlerts.length} alertes déclenchées</CardDescription>
+          <CardTitle className="flex items-center">
+            <BellOff className="mr-2 h-5 w-5" />
+            Muted Alerts
+          </CardTitle>
+          <CardDescription>Alerts you've temporarily muted</CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-            </div>
-          ) : triggeredAlerts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <AlertTriangle className="h-10 w-10 text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">Aucune alerte déclenchée</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Symbole</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Condition</TableHead>
-                  <TableHead>Message</TableHead>
-                  <TableHead>Statut</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {triggeredAlerts.map((alert) => (
-                  <TableRow key={alert.id} className="opacity-70">
-                    <TableCell className="font-medium">{alert.symbol}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="opacity-70">
-                        {getAlertTypeLabel(alert.type)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {getAlertConditionLabel(alert.condition)} {getAlertValueLabel(alert)}
-                    </TableCell>
-                    <TableCell>{alert.message}</TableCell>
-                    <TableCell>
-                      <Badge variant="success">
-                        <Check className="h-3 w-3 mr-1" />
-                        Déclenchée
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteAlert(alert.id)}>
-                        <Trash2 className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <div className="p-6 text-center text-muted-foreground">
+            <p>No muted alerts</p>
+          </div>
         </CardContent>
       </Card>
     </div>

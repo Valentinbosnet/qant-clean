@@ -1,18 +1,20 @@
 "use client"
 
-import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { authenticateOfflineUser } from "@/lib/offline-auth" // Using offline-auth as per instructions
+import { authenticateOfflineUser } from "@/lib/offline-auth"
+import type React from "react"
 
-interface DirectAuthFormProps {
-  onSuccess: () => void
+export interface DirectAuthFormProps {
+  defaultTab?: "signin" | "signup"
+  onSuccess?: () => void
 }
 
-const DirectAuthForm: React.FC<DirectAuthFormProps> = ({ onSuccess }) => {
+export function DirectAuthForm({ defaultTab = "signin", onSuccess = () => {} }: DirectAuthFormProps) {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">(defaultTab)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -24,6 +26,7 @@ const DirectAuthForm: React.FC<DirectAuthFormProps> = ({ onSuccess }) => {
 
       if (success) {
         onSuccess()
+        router.push("/dashboard")
       } else {
         setError("Invalid username or password.")
       }
@@ -34,47 +37,62 @@ const DirectAuthForm: React.FC<DirectAuthFormProps> = ({ onSuccess }) => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-sm mx-auto">
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">Error!</strong>
-          <span className="block sm:inline">{error}</span>
-        </div>
-      )}
-      <div className="mb-4">
-        <label htmlFor="username" className="block text-gray-700 text-sm font-bold mb-2">
-          Username:
-        </label>
-        <input
-          type="text"
-          id="username"
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-      </div>
-      <div className="mb-6">
-        <label htmlFor="password" className="block text-gray-700 text-sm font-bold mb-2">
-          Password:
-        </label>
-        <input
-          type="password"
-          id="password"
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </div>
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 p-4 bg-white rounded-lg shadow">
+      <div className="flex justify-center space-x-4 mb-6">
         <button
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-          type="submit"
+          onClick={() => setActiveTab("signin")}
+          className={`px-4 py-2 ${activeTab === "signin" ? "border-b-2 border-blue-600 font-semibold" : "text-gray-500"}`}
         >
           Sign In
         </button>
+        <button
+          onClick={() => setActiveTab("signup")}
+          className={`px-4 py-2 ${activeTab === "signup" ? "border-b-2 border-blue-600 font-semibold" : "text-gray-500"}`}
+        >
+          Sign Up
+        </button>
       </div>
-    </form>
+
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <span className="block sm:inline">{error}</span>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+            {activeTab === "signin" ? "Username or Email" : "Choose a Username"}
+          </label>
+          <input
+            type="text"
+            id="username"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            {activeTab === "signin" ? "Password" : "Create Password"}
+          </label>
+          <input
+            type="password"
+            id="password"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+        <button className="w-full bg-blue-500 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded" type="submit">
+          {activeTab === "signin" ? "Sign In" : "Create Account"}
+        </button>
+      </form>
+    </div>
   )
 }
 
+// Default export for backwards compatibility
 export default DirectAuthForm
