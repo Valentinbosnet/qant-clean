@@ -8,6 +8,26 @@ let supabaseClient: ReturnType<typeof createClient<Database>> | null = null
 let initializationAttempts = 0
 const MAX_INITIALIZATION_ATTEMPTS = 3
 
+export function checkEnvironmentVariables(): {
+  isConfigured: boolean
+  missingVars: string[]
+  message: string
+} {
+  const requiredVars = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY"]
+  const missingVars = requiredVars.filter((varName) => {
+    return typeof process.env[varName] === "undefined" || process.env[varName] === ""
+  })
+
+  return {
+    isConfigured: missingVars.length === 0,
+    missingVars,
+    message:
+      missingVars.length > 0
+        ? `Variables d'environnement manquantes: ${missingVars.join(", ")}`
+        : "Configuration Supabase complète",
+  }
+}
+
 export function getBrowserClient() {
   if (typeof window === "undefined") {
     console.warn("getBrowserClient doit être appelé côté client uniquement")
@@ -29,24 +49,27 @@ export function getBrowserClient() {
 
   try {
     // Récupérer les variables d'environnement
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const { isConfigured, missingVars, message } = checkEnvironmentVariables()
 
     // Vérifier si les variables d'environnement sont définies
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error("Variables d'environnement Supabase manquantes")
+    if (!isConfigured) {
+      console.error(message)
       return null
     }
 
     // Créer le client Supabase
-    supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        flowType: "pkce",
+    supabaseClient = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          flowType: "pkce",
+        },
       },
-    })
+    )
 
     console.log("Client Supabase initialisé avec succès")
     return supabaseClient

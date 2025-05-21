@@ -5,7 +5,52 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo, u
 import type { Session, User, AuthError } from "@supabase/supabase-js"
 import { useToast } from "@/hooks/use-toast"
 import { getClientSupabase } from "@/lib/client-supabase"
-import { isOfflineMode, signOutOfflineUser, authenticateOfflineUser, getOfflineUser } from "@/lib/offline-mode"
+
+// Define offline mode functions if they don't exist elsewhere
+const isOfflineMode = () => {
+  if (typeof window === "undefined") return false
+  return localStorage.getItem("offlineMode") === "true"
+}
+
+const getOfflineUser = () => {
+  if (typeof window === "undefined") return null
+  const userData = localStorage.getItem("offlineUser")
+  return userData ? JSON.parse(userData) : null
+}
+
+const authenticateOfflineUser = async (email: string, password: string) => {
+  if (typeof window === "undefined") return null
+
+  // In a real app, you would use a proper authentication mechanism
+  // This is a simplified version for demonstration purposes
+  const storedUser = localStorage.getItem("offlineUser")
+  if (!storedUser) return null
+
+  const user = JSON.parse(storedUser)
+
+  // Very basic check - in a real app, you would use proper password hashing
+  if (user.email === email && user.hashedPassword === hashPassword(password)) {
+    return user
+  }
+
+  return null
+}
+
+const signOutOfflineUser = async () => {
+  if (typeof window === "undefined") return
+  localStorage.removeItem("offlineUser")
+}
+
+// Simple hash function for demonstration - DO NOT use in production
+const hashPassword = (password: string) => {
+  let hash = 0
+  for (let i = 0; i < password.length; i++) {
+    const char = password.charCodeAt(i)
+    hash = (hash << 5) - hash + char
+    hash = hash & hash
+  }
+  return hash.toString()
+}
 
 // Définition claire des types pour éviter les erreurs
 type AuthContextType = {

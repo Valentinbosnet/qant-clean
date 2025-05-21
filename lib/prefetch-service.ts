@@ -1,5 +1,157 @@
-import { CachePriority, getFromOfflineCache, saveToOfflineCache, getOfflineSettings } from "./offline-mode"
-import { analyzeStorageUsage } from "./offline-mode"
+// Define the CachePriority enum directly in this file
+export enum CachePriority {
+  HIGH = "high",
+  MEDIUM = "medium",
+  LOW = "low",
+}
+
+// Define offline settings interface
+interface OfflineSettings {
+  enabled: boolean
+  autoDetect: boolean
+  syncOnReconnect: boolean
+  compressionEnabled: boolean
+  storageQuota: number // in bytes
+}
+
+// Default offline settings
+const DEFAULT_OFFLINE_SETTINGS: OfflineSettings = {
+  enabled: false,
+  autoDetect: true,
+  syncOnReconnect: true,
+  compressionEnabled: false,
+  storageQuota: 50 * 1024 * 1024, // 50MB
+}
+
+// Implement the required offline functions
+export function isOfflineMode(): boolean {
+  if (typeof window === "undefined") {
+    return false
+  }
+
+  try {
+    return localStorage.getItem("offlineMode") === "true"
+  } catch (error) {
+    console.error("Error checking offline mode:", error)
+    return false
+  }
+}
+
+export function getOfflineSettings(): OfflineSettings {
+  if (typeof window === "undefined") {
+    return DEFAULT_OFFLINE_SETTINGS
+  }
+
+  try {
+    const settingsJson = localStorage.getItem("offlineSettings")
+    if (!settingsJson) {
+      return DEFAULT_OFFLINE_SETTINGS
+    }
+
+    return { ...DEFAULT_OFFLINE_SETTINGS, ...JSON.parse(settingsJson) }
+  } catch (error) {
+    console.error("Error getting offline settings:", error)
+    return DEFAULT_OFFLINE_SETTINGS
+  }
+}
+
+export function saveOfflineSettings(settings: Partial<OfflineSettings>): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    const currentSettings = getOfflineSettings()
+    const newSettings = { ...currentSettings, ...settings }
+    localStorage.setItem("offlineSettings", JSON.stringify(newSettings))
+  } catch (error) {
+    console.error("Error saving offline settings:", error)
+  }
+}
+
+export function saveToOfflineCache(key: string, data: any, options: any = {}): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    localStorage.setItem(`offlineCache_${key}`, JSON.stringify(data))
+    localStorage.setItem(
+      `offlineCacheMeta_${key}`,
+      JSON.stringify({
+        timestamp: Date.now(),
+        type: options.type || "json",
+        priority: options.priority || CachePriority.MEDIUM,
+        category: options.category || "general",
+        tags: options.tags || [],
+      }),
+    )
+  } catch (error) {
+    console.error(`Error saving to offline cache (${key}):`, error)
+  }
+}
+
+export function getFromOfflineCache<T = any>(key: string): T | null {
+  if (typeof window === "undefined") {
+    return null
+  }
+
+  try {
+    const data = localStorage.getItem(`offlineCache_${key}`)
+    if (!data) {
+      return null
+    }
+
+    return JSON.parse(data) as T
+  } catch (error) {
+    console.error(`Error getting from offline cache (${key}):`, error)
+    return null
+  }
+}
+
+export function analyzeStorageUsage(): any {
+  if (typeof window === "undefined") {
+    return {
+      totalItems: 0,
+      totalSize: 0,
+      usagePercentage: 0,
+    }
+  }
+
+  try {
+    let totalItems = 0
+    let totalSize = 0
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith("offlineCache_")) {
+        totalItems++
+        const value = localStorage.getItem(key) || ""
+        totalSize += new Blob([value]).size
+      }
+    }
+
+    const settings = getOfflineSettings()
+    const usagePercentage = settings.storageQuota > 0 ? (totalSize / settings.storageQuota) * 100 : 0
+
+    return {
+      totalItems,
+      totalSize,
+      usagePercentage,
+    }
+  } catch (error) {
+    console.error("Error analyzing storage usage:", error)
+    return {
+      totalItems: 0,
+      totalSize: 0,
+      usagePercentage: 0,
+    }
+  }
+}
+
+export function syncOfflineData(): Promise<boolean> {
+  return Promise.resolve(true) // Placeholder implementation
+}
 
 // Types pour le préchargement
 export interface PrefetchConfig {
@@ -41,6 +193,7 @@ const PREFETCH_CONFIG_KEY = "prefetchConfig"
 const USER_BEHAVIOR_KEY = "userBehavior"
 const PREFETCH_STATS_KEY = "prefetchStats"
 const ROUTE_HISTORY_KEY = "routeHistory"
+const OFFLINE_USER_DATA_KEY = "offlineUserData"
 
 // Configuration par défaut
 const DEFAULT_PREFETCH_CONFIG: PrefetchConfig = {
@@ -613,5 +766,128 @@ export function cleanupUnusedPrefetchedItems(): number {
   } catch (error) {
     console.error("Erreur lors du nettoyage des éléments préchargés non utilisés:", error)
     return 0
+  }
+}
+
+/**
+ * Authenticates a user in offline mode
+ * @param {string} email - User's email
+ * @param {string} password - User's password
+ * @returns {Promise<{success: boolean, user?: any, error?: string}>} Authentication result
+ */
+export async function authenticateOfflineUser(
+  email: string,
+  password: string,
+): Promise<{ success: boolean; user?: any; error?: string }> {
+  if (typeof window === "undefined") {
+    return { success: false, error: "Cannot authenticate offline on server" }
+  }
+
+  try {
+    // Check if we have stored user credentials
+    const storedUserData = localStorage.getItem(OFFLINE_USER_DATA_KEY)
+
+    if (!storedUserData) {
+      return {
+        success: false,
+        error: "No offline user data available. You need to log in at least once while online.",
+      }
+    }
+
+    const userData = JSON.parse(storedUserData)
+
+    // Simple check - in a real app, you'd use a proper hash comparison
+    // This is just a basic implementation for demonstration
+    if (userData.email === email && userData.passwordHash === hashPassword(password)) {
+      return {
+        success: true,
+        user: {
+          id: userData.id,
+          email: userData.email,
+          name: userData.name,
+          // Don't include sensitive data like password hash
+        },
+      }
+    }
+
+    return { success: false, error: "Invalid email or password" }
+  } catch (error) {
+    console.error("Error during offline authentication:", error)
+    return { success: false, error: "Authentication failed" }
+  }
+}
+
+/**
+ * Stores user data for offline authentication
+ * @param {any} user - User data to store
+ * @param {string} passwordHash - Hashed password
+ */
+export function storeOfflineUserData(user: any, passwordHash: string): void {
+  if (typeof window === "undefined" || !user) {
+    return
+  }
+
+  try {
+    const userData = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      passwordHash,
+      storedAt: Date.now(),
+    }
+
+    localStorage.setItem(OFFLINE_USER_DATA_KEY, JSON.stringify(userData))
+  } catch (error) {
+    console.error("Error storing offline user data:", error)
+  }
+}
+
+/**
+ * Simple password hashing function
+ * Note: In a real application, use a proper crypto library
+ * @param {string} password - Password to hash
+ * @returns {string} Hashed password
+ */
+function hashPassword(password: string): string {
+  // This is NOT secure - just for demonstration
+  // In a real app, use a proper hashing library
+  let hash = 0
+  for (let i = 0; i < password.length; i++) {
+    const char = password.charCodeAt(i)
+    hash = (hash << 5) - hash + char
+    hash = hash & hash // Convert to 32bit integer
+  }
+  return hash.toString(16)
+}
+
+/**
+ * Checks if offline authentication is available
+ * @returns {boolean} True if offline authentication is available
+ */
+export function isOfflineAuthAvailable(): boolean {
+  if (typeof window === "undefined") {
+    return false
+  }
+
+  try {
+    return localStorage.getItem(OFFLINE_USER_DATA_KEY) !== null
+  } catch (error) {
+    console.error("Error checking offline auth availability:", error)
+    return false
+  }
+}
+
+/**
+ * Clears offline authentication data
+ */
+export function clearOfflineAuthData(): void {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  try {
+    localStorage.removeItem(OFFLINE_USER_DATA_KEY)
+  } catch (error) {
+    console.error("Error clearing offline auth data:", error)
   }
 }

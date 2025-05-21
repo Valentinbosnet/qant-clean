@@ -8,3 +8,6 @@ export default function OfflineSettingsPage() {
     </div>
   )
 }
+
+// Désactiver le prérendu statique pour cette page
+export const dynamic = "force-dynamic"

@@ -1,85 +1,93 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
+import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
-import { WifiIcon, WifiOffIcon } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { WifiOff, CheckCircle, AlertCircle, HelpCircle } from "lucide-react"
+import { isOfflineMode, getOfflineSettings } from "@/lib/prefetch-service"
 
 export function OfflineReadinessIndicator() {
-  const [readinessScore, setReadinessScore] = useState(0)
-  const [isOnline, setIsOnline] = useState(true)
-  const [status, setStatus] = useState<"ready" | "partial" | "limited">("limited")
+  const [status, setStatus] = useState<"ready" | "partial" | "not-ready" | "loading">("loading")
+  const [details, setDetails] = useState<string>("")
 
   useEffect(() => {
-    // Vérifier l'état de la connexion
-    const checkOnlineStatus = () => {
-      setIsOnline(navigator.onLine)
+    // Vérifier si le mode hors ligne est activé
+    const offlineSettings = getOfflineSettings()
+    const isOffline = isOfflineMode()
+
+    if (!offlineSettings.enabled && !isOffline) {
+      setStatus("not-ready")
+      setDetails("Le mode hors ligne n'est pas activé")
+      return
     }
 
-    // Calculer le score de préparation hors ligne
-    const calculateReadinessScore = () => {
-      // Simuler un calcul de score basé sur les données préchargées, etc.
-      // Dans une implémentation réelle, ce score serait basé sur:
-      // - Quantité de données préchargées
-      // - Fraîcheur des données
-      // - Couverture des fonctionnalités principales
-      const mockScore = Math.floor(Math.random() * 40) + 60 // Score entre 60 et 100 pour la démo
-      setReadinessScore(mockScore)
+    // Vérifier si le stockage est disponible
+    if (!("localStorage" in window)) {
+      setStatus("not-ready")
+      setDetails("Le stockage local n'est pas disponible sur ce navigateur")
+      return
+    }
 
-      if (mockScore >= 80) {
-        setStatus("ready")
-      } else if (mockScore >= 50) {
+    // Vérifier si le service worker est supporté
+    if (!("serviceWorker" in navigator)) {
+      setStatus("partial")
+      setDetails("Les service workers ne sont pas supportés - fonctionnalités limitées")
+      return
+    }
+
+    // Vérifier si le service worker est enregistré
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      if (registrations.length === 0) {
         setStatus("partial")
+        setDetails("Service worker non enregistré - fonctionnalités limitées")
       } else {
-        setStatus("limited")
+        setStatus("ready")
+        setDetails("L'application est prête à fonctionner hors ligne")
       }
-    }
-
-    checkOnlineStatus()
-    calculateReadinessScore()
-
-    // Écouter les changements de connectivité
-    window.addEventListener("online", checkOnlineStatus)
-    window.addEventListener("offline", checkOnlineStatus)
-
-    return () => {
-      window.removeEventListener("online", checkOnlineStatus)
-      window.removeEventListener("offline", checkOnlineStatus)
-    }
+    })
   }, [])
 
+  const getIcon = () => {
+    switch (status) {
+      case "ready":
+        return <CheckCircle className="h-3 w-3 text-green-500" />
+      case "partial":
+        return <AlertCircle className="h-3 w-3 text-amber-500" />
+      case "not-ready":
+        return <WifiOff className="h-3 w-3 text-red-500" />
+      case "loading":
+      default:
+        return <HelpCircle className="h-3 w-3 text-gray-500" />
+    }
+  }
+
+  const getColor = () => {
+    switch (status) {
+      case "ready":
+        return "bg-green-100 text-green-800 border-green-300"
+      case "partial":
+        return "bg-amber-100 text-amber-800 border-amber-300"
+      case "not-ready":
+        return "bg-red-100 text-red-800 border-red-300"
+      case "loading":
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300"
+    }
+  }
+
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <h3 className="font-medium">Préparation hors ligne</h3>
-              <Badge variant={status === "ready" ? "default" : status === "partial" ? "warning" : "destructive"}>
-                {status === "ready" ? "Prêt" : status === "partial" ? "Partiellement prêt" : "Préparation limitée"}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              <Progress value={readinessScore} className="h-2 w-[200px]" />
-              <span className="text-sm font-medium">{readinessScore}/100</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {isOnline ? (
-              <>
-                <WifiIcon className="h-5 w-5 text-green-500" />
-                <span className="text-sm font-medium text-green-500">En ligne</span>
-              </>
-            ) : (
-              <>
-                <WifiOffIcon className="h-5 w-5 text-orange-500" />
-                <span className="text-sm font-medium text-orange-500">Hors ligne</span>
-              </>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant="outline" className={`flex items-center gap-1 ${getColor()}`}>
+            {getIcon()}
+            <span>Hors ligne {status === "ready" ? "prêt" : status === "partial" ? "partiel" : "non prêt"}</span>
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{details}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
