@@ -61,18 +61,20 @@ export function ErrorStateInfo({ type }: ErrorStateInfoProps) {
   if (!info) return null
 
   return (
-    <Alert variant="destructive">
+    <Alert variant="destructive" className="error-info-container">
       <AlertCircle className="h-4 w-4" />
-      <AlertTitle className="flex items-center gap-2">
+      <AlertTitle className="error-info-title">
         {info.icon} {info.title}
       </AlertTitle>
       <AlertDescription>
-        <p className="mt-2">{info.description}</p>
-        <div className="mt-4">
-          <p className="font-semibold">Bonnes pratiques:</p>
-          <ul className="list-disc pl-5 mt-2 space-y-1">
+        <p className="error-info-description">{info.description}</p>
+        <div className="error-info-practices">
+          <p className="error-info-practices-title">Bonnes pratiques:</p>
+          <ul className="error-info-practices-list">
             {info.bestPractices.map((practice, index) => (
-              <li key={index}>{practice}</li>
+              <li key={index} className="error-info-practices-item">
+                {practice}
+              </li>
             ))}
           </ul>
         </div>

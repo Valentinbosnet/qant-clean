@@ -1,0 +1,33 @@
+/* Styles pour les informations d'état d'erreur */
+.error-info-container {
+  margin-bottom: 1rem;
+}
+
+.error-info-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.error-info-description {
+  margin-top: 0.5rem;
+}
+
+.error-info-practices {
+  margin-top: 1rem;
+}
+
+.error-info-practices-title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.error-info-practices-list {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+}
+
+.error-info-practices-item {
+  margin-bottom: 0.25rem;
+}

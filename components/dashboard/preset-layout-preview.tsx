@@ -48,9 +48,9 @@ export function PresetLayoutPreview({ preset, isInteractive = false }: PresetLay
   const maxHeight = Math.max(...preset.widgets.map((w) => w.position.y + w.position.h))
 
   return (
-    <div className="relative w-full overflow-hidden rounded-md border bg-background">
+    <div className="preset-preview-container">
       <div
-        className="grid gap-1 p-2"
+        className="preset-preview-grid"
         style={{
           gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
           gridTemplateRows: `repeat(${maxHeight}, 20px)`,
@@ -59,10 +59,7 @@ export function PresetLayoutPreview({ preset, isInteractive = false }: PresetLay
         {preset.widgets.map((widget) => (
           <div
             key={widget.id}
-            className={`
-              ${isInteractive ? "hover:ring-2 hover:ring-primary/50 cursor-pointer transition-all" : ""}
-              bg-muted/50 rounded-sm overflow-hidden
-            `}
+            className={`preset-preview-widget ${isInteractive ? "hover:ring-2 hover:ring-primary/50 cursor-pointer transition-all" : ""}`}
             style={{
               gridColumnStart: widget.position.x + 1,
               gridColumnEnd: widget.position.x + widget.position.w + 1,
@@ -70,12 +67,12 @@ export function PresetLayoutPreview({ preset, isInteractive = false }: PresetLay
               gridRowEnd: widget.position.y + widget.position.h + 1,
             }}
           >
-            <div className="flex items-center justify-between p-1 text-xs bg-muted/80 border-b border-border/50">
-              <div className="flex items-center gap-1 truncate">
+            <div className="preset-preview-widget-header">
+              <div className="preset-preview-widget-title">
                 {getWidgetIcon(widget.type)}
                 <span className="truncate">{widget.title}</span>
               </div>
-              <Badge variant="outline" className="text-[10px] h-4 px-1">
+              <Badge variant="outline" className="preset-preview-widget-badge">
                 {widget.type}
               </Badge>
             </div>
