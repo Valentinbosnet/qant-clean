@@ -1,4 +1,23 @@
+"use client"
+
+import { useEffect, useState } from "react"
+
 export default function NotFound() {
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  // Simple loading state for server-side rendering
+  if (!isClient) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen px-4 text-center">
+        <div className="w-16 h-16 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 text-center">
       <h1 className="text-6xl font-bold text-gray-800">404</h1>
