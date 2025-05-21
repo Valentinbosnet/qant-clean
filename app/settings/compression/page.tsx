@@ -1,34 +1,27 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { Skeleton } from "@/components/ui/skeleton"
 
-// Dynamically import the component with SSR disabled
-const CompressionSettingsClient = dynamic(() => import("@/components/compression-settings-client"), {
-  ssr: false,
-  loading: () => <CompressionSettingsLoading />,
-})
-
-// Static loading component that doesn't use any data
+// Create a simple loading component with no data dependencies
 function CompressionSettingsLoading() {
   return (
-    <div className="container py-8">
-      <h1 className="text-3xl font-bold mb-6">Compression Settings</h1>
-      <div className="w-full max-w-3xl mx-auto border rounded-lg p-6 shadow-sm">
-        <div className="space-y-4">
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-4 w-full" />
-          <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-          <Skeleton className="h-10 w-full" />
-        </div>
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Compression Settings</h1>
+      <div className="animate-pulse">
+        <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+        <div className="h-64 bg-gray-200 rounded mb-4"></div>
+        <div className="h-8 bg-gray-200 rounded w-1/2 mb-4"></div>
+        <div className="h-32 bg-gray-200 rounded"></div>
       </div>
     </div>
   )
 }
+
+// Dynamically import the client component with SSR disabled
+const CompressionSettingsClient = dynamic(() => import("@/components/compression-settings-client"), {
+  ssr: false,
+  loading: () => <CompressionSettingsLoading />,
+})
 
 export default function CompressionSettingsPage() {
   return <CompressionSettingsClient />

@@ -1,3 +1,5 @@
+"use client"
+
 import dynamic from "next/dynamic"
 
 // Create a simple loading component with no data dependencies
