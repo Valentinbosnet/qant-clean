@@ -3,14 +3,11 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { getBrowserClient } from "@/lib/client-supabase"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2 } from "lucide-react"
 import { ThemeSelector } from "@/components/profile/theme-selector"
 import { AvatarUpload } from "@/components/profile/avatar-upload"
+
+export const dynamic = "force-dynamic"
 
 export default function ProfilePage() {
   const { user } = useAuth()
@@ -88,66 +85,136 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="container py-12">
-        <Card>
-          <CardHeader>
-            <CardTitle>Profil</CardTitle>
-            <CardDescription>Connectez-vous pour voir votre profil</CardDescription>
-          </CardHeader>
-        </Card>
+      <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
+        <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "2rem" }}>Mon profil</h1>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2rem" }}>
+          <div
+            style={{
+              border: "1px solid #e2e8f0",
+              borderRadius: "0.5rem",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                padding: "1.5rem",
+                borderBottom: "1px solid #e2e8f0",
+                background: "#f8fafc",
+              }}
+            >
+              <h2 style={{ fontSize: "1.25rem", fontWeight: "bold" }}>Informations personnelles</h2>
+              <p style={{ color: "#64748b" }}>Connectez-vous pour voir votre profil</p>
+            </div>
+
+            <div style={{ padding: "1.5rem" }}>
+              <p>Veuillez vous connecter pour accéder à votre profil.</p>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="container py-12">
-      <h1 className="text-3xl font-bold mb-8">Mon profil</h1>
+    <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
+      <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "2rem" }}>Mon profil</h1>
 
-      <div className="grid gap-8 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Informations personnelles</CardTitle>
-            <CardDescription>Mettez à jour vos informations personnelles</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" value={user.email} disabled />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2rem" }}>
+        <div
+          style={{
+            border: "1px solid #e2e8f0",
+            borderRadius: "0.5rem",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: "1.5rem",
+              borderBottom: "1px solid #e2e8f0",
+              background: "#f8fafc",
+            }}
+          >
+            <h2 style={{ fontSize: "1.25rem", fontWeight: "bold" }}>Informations personnelles</h2>
+            <p style={{ color: "#64748b" }}>Mettez à jour vos informations personnelles</p>
+          </div>
+
+          <div style={{ padding: "1.5rem" }}>
+            <div style={{ spaceY: "2rem" }}>
+              <div style={{ spaceY: "1rem" }}>
+                <label htmlFor="email" style={{ display: "block", marginBottom: "0.5rem" }}>
+                  Email
+                </label>
+                <input
+                  id="email"
+                  value={user.email}
+                  disabled
+                  style={{ padding: "0.5rem", border: "1px solid #e2e8f0", borderRadius: "0.25rem" }}
+                />
+              </div>
+
+              <div style={{ spaceY: "1rem" }}>
+                <label htmlFor="fullName" style={{ display: "block", marginBottom: "0.5rem" }}>
+                  Nom complet
+                </label>
+                <input
+                  id="fullName"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Votre nom complet"
+                  style={{ padding: "0.5rem", border: "1px solid #e2e8f0", borderRadius: "0.25rem" }}
+                />
+              </div>
+
+              <div style={{ spaceY: "1rem" }}>
+                <label htmlFor="website" style={{ display: "block", marginBottom: "0.5rem" }}>
+                  Site web
+                </label>
+                <input
+                  id="website"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="https://votresite.com"
+                  style={{ padding: "0.5rem", border: "1px solid #e2e8f0", borderRadius: "0.25rem" }}
+                />
+              </div>
+
+              <button
+                onClick={updateProfile}
+                disabled={loading}
+                style={{
+                  padding: "0.5rem",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "0.25rem",
+                  background: "#60a5fa",
+                  color: "white",
+                  cursor: "pointer",
+                }}
+              >
+                {loading ? (
+                  <>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        width: "1rem",
+                        height: "1rem",
+                        borderRadius: "50%",
+                        border: "2px solid transparent",
+                        borderTopColor: "#ffffff",
+                        animation: "spin 1s linear infinite",
+                      }}
+                    ></span>{" "}
+                    Mise à jour...
+                  </>
+                ) : (
+                  "Mettre à jour"
+                )}
+              </button>
             </div>
+          </div>
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Nom complet</Label>
-              <Input
-                id="fullName"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Votre nom complet"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="website">Site web</Label>
-              <Input
-                id="website"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                placeholder="https://votresite.com"
-              />
-            </div>
-
-            <Button onClick={updateProfile} disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Mise à jour...
-                </>
-              ) : (
-                "Mettre à jour"
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-
-        <div className="space-y-8">
+        <div style={{ spaceY: "2rem" }}>
           <AvatarUpload userId={user.id} avatarUrl={profile?.avatar_url} />
           <ThemeSelector userId={user.id} currentTheme={profile?.theme} />
         </div>
