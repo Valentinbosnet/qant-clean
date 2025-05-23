@@ -1,77 +1,124 @@
-"use client"
+export const dynamic = "force-dynamic"
+export const generateStaticParams = () => {
+  return []
+}
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { EnhancedStockPrediction } from "@/components/enhanced-stock-prediction"
-import { getStockData } from "@/lib/stock-service"
-import { Loader2 } from "lucide-react"
-
-export default function TestIAPlusPage() {
-  const [symbol, setSymbol] = useState("AAPL")
-  const [stockData, setStockData] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchStockData = async () => {
-    if (!symbol) return
-
-    setLoading(true)
-    setError(null)
-    setStockData(null)
-
-    try {
-      const data = await getStockData(symbol)
-      setStockData(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur lors de la récupération des données")
-    } finally {
-      setLoading(false)
-    }
-  }
-
+export default function TestIAPlusStaticPage() {
   return (
-    <div className="container py-8">
-      <h1 className="text-3xl font-bold mb-6">Test des Prédictions IA+</h1>
-      <p className="text-muted-foreground mb-6">
-        Cette page vous permet de tester les prédictions IA+ pour n'importe quel symbole boursier.
-      </p>
+    <div
+      style={{
+        fontFamily: "system-ui, sans-serif",
+        padding: "2rem",
+        maxWidth: "1200px",
+        margin: "0 auto",
+      }}
+    >
+      <h1
+        style={{
+          fontSize: "2rem",
+          fontWeight: "bold",
+          marginBottom: "1rem",
+          color: "#333",
+        }}
+      >
+        Test des Prédictions IA+
+      </h1>
 
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Entrez un symbole boursier</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-end gap-4">
-            <div className="flex-1">
-              <Label htmlFor="symbol">Symbole</Label>
-              <Input
-                id="symbol"
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                placeholder="ex: AAPL"
-              />
-            </div>
-            <Button onClick={fetchStockData} disabled={loading || !symbol}>
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Générer une prédiction
-            </Button>
-          </div>
+      <div
+        style={{
+          backgroundColor: "#f9f9f9",
+          border: "1px solid #eaeaea",
+          borderRadius: "8px",
+          padding: "1.5rem",
+          marginBottom: "2rem",
+        }}
+      >
+        <p
+          style={{
+            fontSize: "1rem",
+            color: "#666",
+            marginBottom: "1rem",
+          }}
+        >
+          Cette page est en cours de chargement. Les fonctionnalités de test IA+ seront disponibles après le déploiement
+          complet.
+        </p>
 
-          {error && <p className="text-red-500 mt-4">{error}</p>}
-        </CardContent>
-      </Card>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "2rem",
+          }}
+        >
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              border: "4px solid #f3f3f3",
+              borderTop: "4px solid #3498db",
+              borderRadius: "50%",
+              animation: "spin 2s linear infinite",
+            }}
+          ></div>
 
-      {stockData && (
-        <div>
-          <h2 className="text-2xl font-bold mb-4">
-            Prédiction pour {stockData.name} ({stockData.symbol})
-          </h2>
-          <EnhancedStockPrediction stock={stockData} />
+          <style
+            dangerouslySetInnerHTML={{
+              __html: `
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            `,
+            }}
+          />
         </div>
-      )}
+
+        <p
+          style={{
+            fontSize: "0.875rem",
+            color: "#888",
+            textAlign: "center",
+          }}
+        >
+          Veuillez patienter ou revenir plus tard pour tester les prédictions IA+.
+        </p>
+      </div>
+
+      <div
+        style={{
+          backgroundColor: "white",
+          border: "1px solid #eaeaea",
+          borderRadius: "8px",
+          padding: "1.5rem",
+        }}
+      >
+        <h2
+          style={{
+            fontSize: "1.5rem",
+            fontWeight: "bold",
+            marginBottom: "1rem",
+            color: "#333",
+          }}
+        >
+          Fonctionnalités à venir
+        </h2>
+
+        <ul
+          style={{
+            listStyleType: "disc",
+            paddingLeft: "1.5rem",
+            color: "#555",
+          }}
+        >
+          <li style={{ marginBottom: "0.5rem" }}>Prédictions basées sur l'IA pour les symboles boursiers</li>
+          <li style={{ marginBottom: "0.5rem" }}>Analyse des tendances du marché</li>
+          <li style={{ marginBottom: "0.5rem" }}>Recommandations d'investissement personnalisées</li>
+          <li style={{ marginBottom: "0.5rem" }}>Visualisations interactives des données</li>
+          <li style={{ marginBottom: "0.5rem" }}>Alertes de marché en temps réel</li>
+        </ul>
+      </div>
     </div>
   )
 }
