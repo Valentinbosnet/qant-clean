@@ -1,195 +1,137 @@
-"use client"
+export const dynamic = "force-dynamic"
+export const generateStaticParams = () => {
+  return []
+}
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AlertCircle, AlertTriangle, ArrowLeft, Check, Clock, Search, Trash2, BellPlus, Filter } from "lucide-react"
-import { alertsService } from "@/lib/alerts-service"
-import type { PredictionAlert } from "@/lib/prediction-alerts-service"
-import { useToast } from "@/hooks/use-toast"
-import Link from "next/link"
-
-export default function PredictionAlertsPage() {
-  const [alerts, setAlerts] = useState<PredictionAlert[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filterType, setFilterType] = useState<string>("all")
-  const { toast } = useToast()
-
-  useEffect(() => {
-    loadAlerts()
-  }, [])
-
-  const loadAlerts = async () => {
-    setLoading(true)
-    try {
-      const allAlerts = await alertsService.getAlerts()
-
-      // Filtrer les alertes de type prédiction
-      const predictionAlerts = allAlerts.filter((alert) => alert.type === "prediction")
-
-      // Convertir en PredictionAlert (avec des valeurs par défaut pour les propriétés manquantes)
-      const convertedAlerts: PredictionAlert[] = predictionAlerts.map((alert) => ({
-        ...alert,
-        predictionCondition: {
-          type: "price-target", // Valeur par défaut
-          threshold: alert.value,
-          direction: "above", // Valeur par défaut
-          timeframe: "medium", // Valeur par défaut
-        },
-      }))
-
-      setAlerts(convertedAlerts)
-    } catch (error) {
-      console.error("Error loading alerts:", error)
-      toast({
-        title: "Erreur",
-        description: "Impossible de charger les alertes",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleDeleteAlert = async (id: string) => {
-    try {
-      await alertsService.deleteAlert(id)
-      setAlerts(alerts.filter((alert) => alert.id !== id))
-      toast({
-        title: "Alerte supprimée",
-        description: "L'alerte a été supprimée avec succès",
-        variant: "success",
-      })
-    } catch (error) {
-      console.error("Error deleting alert:", error)
-      toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de la suppression de l'alerte",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleDeleteAllTriggered = async () => {
-    try {
-      const triggeredAlerts = alerts.filter((alert) => alert.triggered)
-      for (const alert of triggeredAlerts) {
-        await alertsService.deleteAlert(alert.id)
-      }
-      setAlerts(alerts.filter((alert) => !alert.triggered))
-      toast({
-        title: "Alertes supprimées",
-        description: `${triggeredAlerts.length} alertes déclenchées ont été supprimées`,
-        variant: "success",
-      })
-    } catch (error) {
-      console.error("Error deleting triggered alerts:", error)
-      toast({
-        title: "Erreur",
-        description: "Une erreur est survenue lors de la suppression des alertes",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // Filtrer les alertes par terme de recherche et type
-  const filteredAlerts = alerts.filter((alert) => {
-    const matchesSearch =
-      alert.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      alert.message.toLowerCase().includes(searchTerm.toLowerCase())
-
-    const matchesType =
-      filterType === "all" || (alert.predictionCondition && alert.predictionCondition.type === filterType)
-
-    return matchesSearch && matchesType
-  })
-
-  const activeAlerts = filteredAlerts.filter((alert) => !alert.triggered)
-  const triggeredAlerts = filteredAlerts.filter((alert) => alert.triggered)
-
-  // Obtenir le libellé pour le type d'alerte
-  const getAlertTypeLabel = (type: string) => {
-    switch (type) {
-      case "price-target":
-        return "Objectif de prix"
-      case "trend-change":
-        return "Changement de tendance"
-      case "volatility":
-        return "Volatilité"
-      case "confidence":
-        return "Confiance"
-      case "sector-trend":
-        return "Tendance sectorielle"
-      case "custom":
-        return "Personnalisée"
-      default:
-        return type
-    }
-  }
-
-  // Obtenir le libellé pour la direction
-  const getDirectionLabel = (direction: string) => {
-    switch (direction) {
-      case "above":
-        return "Au-dessus de"
-      case "below":
-        return "En-dessous de"
-      case "change":
-        return "Changement de"
-      default:
-        return direction
-    }
-  }
-
-  // Obtenir le libellé pour le timeframe
-  const getTimeframeLabel = (timeframe: string) => {
-    switch (timeframe) {
-      case "short":
-        return "Court terme"
-      case "medium":
-        return "Moyen terme"
-      case "long":
-        return "Long terme"
-      default:
-        return timeframe
-    }
-  }
-
+export default function PredictionAlertsStaticPage() {
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center">
-          <Button variant="ghost" size="icon" asChild className="mr-2">
-            <Link href="/market-predictions">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
-          <h1 className="text-3xl font-bold">Alertes de prédiction</h1>
+    <div
+      style={{
+        padding: "2rem",
+        maxWidth: "1200px",
+        margin: "0 auto",
+        fontFamily: "system-ui, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "1.5rem",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <a
+            href="/market-predictions"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "2.5rem",
+              height: "2.5rem",
+              borderRadius: "0.375rem",
+              marginRight: "0.5rem",
+              color: "#6b7280",
+              textDecoration: "none",
+            }}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+          </a>
+          <h1
+            style={{
+              fontSize: "1.875rem",
+              fontWeight: "bold",
+              margin: 0,
+            }}
+          >
+            Alertes de prédiction
+          </h1>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div style={{ position: "relative" }}>
+            <div
+              style={{
+                position: "absolute",
+                left: "0.625rem",
+                top: "0.625rem",
+                color: "#6b7280",
+                width: "1rem",
+                height: "1rem",
+              }}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </div>
+            <input
               type="search"
               placeholder="Rechercher..."
-              className="pl-8 w-64"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                paddingLeft: "2rem",
+                width: "16rem",
+                height: "2.5rem",
+                borderRadius: "0.375rem",
+                border: "1px solid #d1d5db",
+                backgroundColor: "transparent",
+              }}
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <div
+              style={{
+                color: "#6b7280",
+                width: "1rem",
+                height: "1rem",
+              }}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+              </svg>
+            </div>
             <select
-              className="bg-background border border-input rounded-md px-3 py-2 text-sm"
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
+              style={{
+                backgroundColor: "transparent",
+                border: "1px solid #d1d5db",
+                borderRadius: "0.375rem",
+                padding: "0.5rem 0.75rem",
+                fontSize: "0.875rem",
+              }}
             >
               <option value="all">Tous les types</option>
               <option value="price-target">Objectif de prix</option>
@@ -200,174 +142,200 @@ export default function PredictionAlertsPage() {
               <option value="custom">Personnalisée</option>
             </select>
           </div>
-
-          {triggeredAlerts.length > 0 && (
-            <Button variant="outline" onClick={handleDeleteAllTriggered}>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Supprimer les alertes déclenchées ({triggeredAlerts.length})
-            </Button>
-          )}
         </div>
       </div>
 
-      <Tabs defaultValue="active" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="active">
+      <div style={{ width: "100%" }}>
+        <div
+          style={{
+            display: "flex",
+            marginBottom: "1rem",
+          }}
+        >
+          <button
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "#f9fafb",
+              border: "1px solid #d1d5db",
+              borderRadius: "0.375rem 0 0 0.375rem",
+              fontSize: "0.875rem",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
             Alertes actives{" "}
-            <Badge variant="secondary" className="ml-1">
-              {activeAlerts.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="triggered">
+            <span
+              style={{
+                display: "inline-block",
+                backgroundColor: "#e5e7eb",
+                borderRadius: "9999px",
+                padding: "0.125rem 0.5rem",
+                marginLeft: "0.25rem",
+                fontSize: "0.75rem",
+              }}
+            >
+              0
+            </span>
+          </button>
+          <button
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "transparent",
+              border: "1px solid #d1d5db",
+              borderLeft: "none",
+              borderRadius: "0 0.375rem 0.375rem 0",
+              fontSize: "0.875rem",
+              cursor: "pointer",
+            }}
+          >
             Alertes déclenchées{" "}
-            <Badge variant="secondary" className="ml-1">
-              {triggeredAlerts.length}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
+            <span
+              style={{
+                display: "inline-block",
+                backgroundColor: "#e5e7eb",
+                borderRadius: "9999px",
+                padding: "0.125rem 0.5rem",
+                marginLeft: "0.25rem",
+                fontSize: "0.75rem",
+              }}
+            >
+              0
+            </span>
+          </button>
+        </div>
 
-        <TabsContent value="active">
-          <Card>
-            <CardHeader>
-              <CardTitle>Alertes actives</CardTitle>
-              <CardDescription>{activeAlerts.length} alertes en attente de déclenchement</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-                </div>
-              ) : activeAlerts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <AlertCircle className="h-10 w-10 text-muted-foreground mb-2" />
-                  <p className="text-muted-foreground">Aucune alerte active</p>
-                  <Button variant="outline" size="sm" className="mt-4" asChild>
-                    <Link href="/market-predictions">
-                      <BellPlus className="h-4 w-4 mr-2" />
-                      Créer une alerte
-                    </Link>
-                  </Button>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Symbole</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Condition</TableHead>
-                      <TableHead>Horizon</TableHead>
-                      <TableHead>Message</TableHead>
-                      <TableHead>Expiration</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {activeAlerts.map((alert) => (
-                      <TableRow key={alert.id}>
-                        <TableCell className="font-medium">
-                          <Link href={`/market-predictions?symbol=${alert.symbol}`} className="hover:underline">
-                            {alert.symbol}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{getAlertTypeLabel(alert.predictionCondition.type)}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          {getDirectionLabel(alert.predictionCondition.direction)} {alert.predictionCondition.threshold}
-                          %
-                        </TableCell>
-                        <TableCell>{getTimeframeLabel(alert.predictionCondition.timeframe)}</TableCell>
-                        <TableCell className="max-w-xs truncate">{alert.message}</TableCell>
-                        <TableCell>
-                          {alert.expires ? (
-                            <div className="flex items-center">
-                              <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
-                              {new Date(alert.expires).toLocaleDateString()}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">Jamais</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteAlert(alert.id)}>
-                            <Trash2 className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        <div
+          style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: "0.5rem",
+            boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
+            backgroundColor: "white",
+          }}
+        >
+          <div
+            style={{
+              padding: "1.5rem",
+              borderBottom: "1px solid #e5e7eb",
+            }}
+          >
+            <h2
+              style={{
+                fontSize: "1.25rem",
+                fontWeight: "bold",
+                margin: 0,
+              }}
+            >
+              Alertes actives
+            </h2>
+            <p
+              style={{
+                color: "#6b7280",
+                margin: "0.25rem 0 0 0",
+                fontSize: "0.875rem",
+              }}
+            >
+              0 alertes en attente de déclenchement
+            </p>
+          </div>
+          <div
+            style={{
+              padding: "1.5rem",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "2rem 0",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  width: "2.5rem",
+                  height: "2.5rem",
+                  marginBottom: "0.5rem",
+                  color: "#6b7280",
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="40"
+                  height="40"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </div>
+              <p
+                style={{
+                  color: "#6b7280",
+                  margin: 0,
+                }}
+              >
+                Aucune alerte active
+              </p>
+              <a
+                href="/market-predictions"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "0.375rem 0.75rem",
+                  marginTop: "1rem",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "0.375rem",
+                  fontSize: "0.875rem",
+                  textDecoration: "none",
+                  color: "inherit",
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ marginRight: "0.5rem" }}
+                >
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  <path d="M2 8c0-2.2.7-4.3 2-6" />
+                  <path d="M22 8a10 10 0 0 0-2-6" />
+                </svg>
+                Créer une alerte
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        <TabsContent value="triggered">
-          <Card>
-            <CardHeader>
-              <CardTitle>Alertes déclenchées</CardTitle>
-              <CardDescription>{triggeredAlerts.length} alertes déjà déclenchées</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-                </div>
-              ) : triggeredAlerts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <AlertTriangle className="h-10 w-10 text-muted-foreground mb-2" />
-                  <p className="text-muted-foreground">Aucune alerte déclenchée</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Symbole</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Condition</TableHead>
-                      <TableHead>Message</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {triggeredAlerts.map((alert) => (
-                      <TableRow key={alert.id} className="opacity-70">
-                        <TableCell className="font-medium">
-                          <Link href={`/market-predictions?symbol=${alert.symbol}`} className="hover:underline">
-                            {alert.symbol}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="opacity-70">
-                            {getAlertTypeLabel(alert.predictionCondition.type)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {getDirectionLabel(alert.predictionCondition.direction)} {alert.predictionCondition.threshold}
-                          %
-                        </TableCell>
-                        <TableCell className="max-w-xs truncate">{alert.message}</TableCell>
-                        <TableCell>
-                          <Badge variant="success">
-                            <Check className="h-3 w-3 mr-1" />
-                            Déclenchée
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteAlert(alert.id)}>
-                            <Trash2 className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <div
+        style={{
+          marginTop: "2rem",
+          padding: "1rem",
+          border: "1px solid #e5e7eb",
+          borderRadius: "0.5rem",
+          backgroundColor: "#f9fafb",
+        }}
+      >
+        <p style={{ margin: 0, textAlign: "center" }}>
+          <strong>Note:</strong> Cette page est en cours de chargement. La fonctionnalité complète sera disponible après
+          le déploiement.
+        </p>
+      </div>
     </div>
   )
 }
