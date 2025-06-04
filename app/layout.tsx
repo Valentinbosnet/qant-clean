@@ -5,10 +5,7 @@ import "./globals.css"
 
 export const metadata: Metadata = {
   title: "Stock Dashboard",
-  description: "Track the performance of popular stocks",, // LIGNE CORRIGÉE
-  // Vous pouvez ajouter d'autres propriétés ici si nécessaire, par exemple:
-  // generator: "v0.dev",
-  // icons: { icon: "/favicon.ico" },
+  description: "Track the performance of popular stocks",
     generator: 'v0.dev'
 }
 
