@@ -5,11 +5,10 @@ import "./globals.css"
 
 export const metadata: Metadata = {
   title: "Stock Dashboard",
-  description: "Track the performance of popular stocks",, // Correction: UNE SEULE virgule ici ou pas de virgule si c'est le dernier élément
-  // Si vous ajoutez d'autres clés après 'description', alors une virgule est nécessaire.
-  // Par exemple:
-  // description: "Track the performance of popular stocks",
-  // generator: "v0.dev", // Exemple d'une autre clé
+  description: "Track the performance of popular stocks",, // Assurez-vous qu'il n'y a qu'une seule virgule ici
+  // ou pas de virgule du tout si 'description' est la dernière propriété.
+  // Par exemple, si vous ajoutez d'autres propriétés:
+  // generator: "v0.dev",
   // icons: { icon: "/favicon.ico" },
     generator: 'v0.dev'
 }
