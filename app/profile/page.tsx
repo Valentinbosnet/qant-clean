@@ -1,100 +1,53 @@
-"use client"
+"use client" // Nécessaire pour useSession
 
-import { useState, useEffect } from "react"
-import { useAuth } from "@/contexts/auth-context"
-import { getBrowserClient } from "@/lib/client-supabase"
-import { useToast } from "@/hooks/use-toast"
-import { UserProfile } from "@/components/profile/user-profile"
-
-export const dynamic = "force-dynamic"
+import { useSession, signOut } from "next-auth/react"
+import { useRouter } from "next/navigation" // Correction: utiliser next/navigation pour App Router
+import { useEffect } from "react"
+import { Button } from "@/components/ui/button" // Assurez-vous d'avoir ce composant
 
 export default function ProfilePage() {
-  const { user } = useAuth()
-  const [fullName, setFullName] = useState("")
-  const [website, setWebsite] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [profile, setProfile] = useState<any>(null)
-  const { toast } = useToast()
-  const supabase = getBrowserClient()
+  const { data: session, status } = useSession()
+  const router = useRouter()
 
+  // Redirection si non authentifié (protection côté client)
+  // Pour une protection robuste, utilisez le middleware.
   useEffect(() => {
-    if (user) {
-      fetchProfile()
+    if (status === "unauthenticated") {
+      router.push("/auth/signin")
     }
-  }, [user])
+  }, [status, router])
 
-  const fetchProfile = async () => {
-    if (!user) return
-
-    try {
-      setLoading(true)
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
-      if (error) throw error
-
-      if (data) {
-        setProfile(data)
-        setFullName(data.full_name || "")
-        setWebsite(data.website || "")
-      }
-    } catch (error: any) {
-      console.error("Erreur lors de la récupération du profil:", error)
-      toast({
-        title: "Erreur",
-        description: "Impossible de récupérer votre profil",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
+  if (status === "loading") {
+    return <p>Chargement du profil...</p>
   }
 
-  const updateProfile = async () => {
-    if (!user) return
-
-    try {
-      setLoading(true)
-
-      const updates = {
-        id: user.id,
-        full_name: fullName,
-        website,
-        updated_at: new Date().toISOString(),
-      }
-
-      const { error } = await supabase.from("profiles").upsert(updates)
-
-      if (error) throw error
-
-      toast({
-        title: "Profil mis à jour",
-        description: "Votre profil a été mis à jour avec succès",
-      })
-    } catch (error: any) {
-      console.error("Erreur lors de la mise à jour du profil:", error)
-      toast({
-        title: "Erreur",
-        description: "Impossible de mettre à jour votre profil",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
+  if (status === "unauthenticated") {
+    return <p>Vous devez être connecté pour voir cette page. Redirection...</p>
   }
 
-  if (!user) {
+  if (session?.user) {
     return (
-      <div className="container py-8">
-        <h1 className="text-2xl font-bold mb-6">Profil utilisateur</h1>
-        <UserProfile />
+      <div className="container mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-4">Profil Utilisateur</h1>
+        <p>
+          Bienvenue, <span className="font-semibold">{session.user.name || "Utilisateur"}</span>!
+        </p>
+        <p>Email: {session.user.email}</p>
+        <p>ID Utilisateur (depuis JWT): {(session.user as any).id || "Non disponible"}</p>
+        {session.user.image && (
+          <img
+            src={session.user.image || "/placeholder.svg"}
+            alt="Avatar utilisateur"
+            className="w-20 h-20 rounded-full my-4"
+          />
+        )}
+        <Button onClick={() => signOut({ callbackUrl: "/" })} className="mt-4">
+          Se déconnecter
+        </Button>
       </div>
     )
   }
 
-  return (
-    <div className="container py-8">
-      <h1 className="text-2xl font-bold mb-6">Profil utilisateur</h1>
-      <UserProfile />
-    </div>
-  )
+  // Fallback au cas où la session est authentifiée mais session.user est manquant (ne devrait pas arriver)
+  return <p>Erreur lors du chargement des informations utilisateur.</p>
 }

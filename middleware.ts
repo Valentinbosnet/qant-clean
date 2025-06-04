@@ -40,5 +40,13 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Matcher pour les chemins qui déclenchent le middleware
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.png$).*)"],
+  matcher: [
+    "/profile", // Protège la page de profil
+    "/favorites", // Ajoutez d'autres routes à protéger ici:
+    "/notes",
+    "/prediction-alerts",
+    "/alerts",
+    "/settings",
+    "/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.png$).*)",
+  ],
 }

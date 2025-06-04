@@ -1,16 +1,13 @@
 import type React from "react"
 import type { Metadata } from "next"
-import "./globals.css" // Assurez-vous que ce fichier existe
-import { ClientProviders } from "./client-providers" // Chemin vers votre composant de providers
+import { Providers } from "./providers" // Importation du composant Providers
+import "./globals.css" // Assurez-vous que ce fichier existe et contient vos styles globaux
 
 export const metadata: Metadata = {
   title: "Stock Dashboard",
-  description: "Track the performance of popular stocks",,
-  // Vous pouvez ajouter d'autres métadonnées ici, comme les icônes
-  // icons: {
-  //   icon: '/favicon.ico',
-  //   apple: '/apple-touch-icon.png',
-  // },
+  description: "Track the performance of popular stocks",, // Virgule en trop supprimée
+  // Vous pouvez ajouter d'autres métadonnées ici si nécessaire
+  // icons: { icon: "/favicon.ico" },
     generator: 'v0.dev'
 }
 
@@ -22,7 +19,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <ClientProviders>{children}</ClientProviders>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

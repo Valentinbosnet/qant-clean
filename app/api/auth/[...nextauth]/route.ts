@@ -1,128 +1,120 @@
 import NextAuth, { type NextAuthOptions } from "next-auth"
-import CredentialsProvider from "next-auth/providers/credentials" // Using only Credentials for extreme simplification
+import GoogleProvider from "next-auth/providers/google"
+// Importez d'autres providers si nécessaire (GitHub, Credentials, etc.)
 
-// --- Environment Variable Retrieval & Validation ---
+// --- Récupération et Validation des Variables d'Environnement ---
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
 const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET
-const VERCEL_URL = process.env.VERCEL_URL
-const NEXTAUTH_URL_USER_DEFINED = process.env.NEXTAUTH_URL
+const NEXTAUTH_URL = process.env.NEXTAUTH_URL // Important pour les redirections, surtout en production
 
-let effectiveNextAuthUrl = NEXTAUTH_URL_USER_DEFINED
-if (!effectiveNextAuthUrl && VERCEL_URL) {
-  effectiveNextAuthUrl = `https://${VERCEL_URL}`
-}
+console.log("--- Configuration NextAuth API Route ---")
+console.log("NEXTAUTH_URL (depuis env):", NEXTAUTH_URL)
+console.log("NEXTAUTH_SECRET est défini:", !!NEXTAUTH_SECRET, "(Longueur:", NEXTAUTH_SECRET?.length || 0, ")")
+console.log("GOOGLE_CLIENT_ID est défini:", !!GOOGLE_CLIENT_ID)
+console.log("GOOGLE_CLIENT_SECRET est défini:", !!GOOGLE_CLIENT_SECRET)
 
-console.log("--- NextAuth API Route Initialization (EXTREME SIMPLIFICATION DEBUG) ---")
-console.log("Effective NEXTAUTH_URL for cookies/redirects:", effectiveNextAuthUrl)
-console.log("NEXTAUTH_SECRET is set:", !!NEXTAUTH_SECRET, "(Length:", NEXTAUTH_SECRET?.length || 0, ")")
+const providers = [
+  // Assurez-vous que les variables sont bien présentes avant d'instancier le provider
+  ...(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET
+    ? [
+        GoogleProvider({
+          clientId: GOOGLE_CLIENT_ID,
+          clientSecret: GOOGLE_CLIENT_SECRET,
+        }),
+      ]
+    : []),
+  // Ajoutez d'autres providers ici
+  // GithubProvider({ clientId: process.env.GITHUB_ID!, clientSecret: process.env.GITHUB_SECRET! }),
+]
 
 if (!NEXTAUTH_SECRET) {
   console.error(
-    "[AUTH_ERROR] CRITICAL: NEXTAUTH_SECRET IS NOT DEFINED. This is the most common cause of session errors. Please set this in your Vercel project environment variables with a strong, random string (32+ chars).",
+    "[ERREUR_AUTH_CRITIQUE] NEXTAUTH_SECRET n'est pas défini. NextAuth ne fonctionnera pas correctement. Ceci est une cause fréquente de CLIENT_FETCH_ERROR en production. Veuillez le définir dans vos variables d'environnement Vercel.",
   )
 } else if (NEXTAUTH_SECRET.length < 32) {
   console.warn(
-    `[AUTH_WARN] NEXTAUTH_SECRET (length: ${NEXTAUTH_SECRET.length}) may be too short. A strong secret of at least 32 characters is highly recommended. An insufficiently random secret can lead to security vulnerabilities and runtime errors.`,
+    `[AVERTISSEMENT_AUTH] NEXTAUTH_SECRET est défini mais pourrait être trop court (longueur: ${NEXTAUTH_SECRET.length}). Un secret fort d'au moins 32 caractères est fortement recommandé.`,
   )
 }
 
-const isProduction = process.env.NODE_ENV === "production"
+if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+  console.error(
+    "[ERREUR_AUTH_CRITIQUE] GOOGLE_CLIENT_ID ou GOOGLE_CLIENT_SECRET n'est pas défini. Le provider Google ne fonctionnera pas. Veuillez les définir dans vos variables d'environnement Vercel.",
+  )
+}
 
-// EXTREMELY SIMPLIFIED authOptions for debugging
 export const authOptions: NextAuthOptions = {
-  providers: [
-    CredentialsProvider({
-      name: "DiagnosticsCredentials", // Using a distinct name for this test
-      credentials: {
-        username: { label: "Username", type: "text", placeholder: "testuser" },
-      },
-      async authorize(credentials) {
-        // This authorize function will likely not be hit during a /api/auth/session call
-        // but is required for the CredentialsProvider.
-        // For this test, we can just return a mock user if needed for other flows.
-        if (credentials?.username === "testuser") {
-          console.log("[AUTH_DIAGNOSTICS_CREDENTIALS] Authorize called for testuser (should not happen for /session).")
-          return { id: "diagnostic-user-123", name: "Diagnostic User" }
-        }
-        return null
-      },
-    }),
-  ],
-  secret: NEXTAUTH_SECRET, // This is paramount.
-  session: {
-    strategy: "jwt", // Explicitly JWT
+  providers: providers,
+  secret: NEXTAUTH_SECRET, // Indispensable pour la production et les JWT
+  pages: {
+    signIn: "/auth/signin", // Page de connexion personnalisée (à créer)
+    // error: '/auth/error', // Page d'erreur d'authentification personnalisée (optionnel)
   },
-  // Using minimal callbacks for diagnostics
+  session: {
+    strategy: "jwt", // Recommandé pour App Router si pas de base de données pour les sessions
+  },
   callbacks: {
-    async jwt({ token, user }) {
-      // console.log("[AUTH_DIAGNOSTICS_JWT] Invoked. User ID:", user?.id);
-      if (user?.id) {
-        token.sub = user.id // 'sub' is standard for subject/user ID in JWT
+    async jwt({ token, user, account }) {
+      // Persiste l'ID utilisateur et le token d'accès (si OAuth) dans le JWT
+      if (account && user) {
+        token.accessToken = account.access_token
+        token.id = user.id
       }
       return token
     },
     async session({ session, token }) {
-      // console.log("[AUTH_DIAGNOSTICS_SESSION] Invoked. Token sub:", token?.sub);
-      if (session?.user && token?.sub) {
+      // Ajoute l'ID utilisateur à l'objet session côté client
+      if (session.user && token.sub) {
+        // token.sub est l'ID utilisateur dans le JWT
         ;(session.user as any).id = token.sub
       }
       return session
     },
   },
-  // Minimal pages configuration
-  pages: {
-    // signIn: '/auth', // Not strictly needed for /api/auth/session test
-    // error: '/auth/error', // Can be added later
-  },
-  // Secure cookies for production
-  cookies: {
-    sessionToken: {
-      name: `${isProduction ? "__Secure-" : ""}next-auth.session-token`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: isProduction,
-      },
-    },
-  },
-  // Basic logger to still catch the CLIENT_FETCH_ERROR if it occurs
+  // Active les logs de débogage de NextAuth en développement
+  debug: process.env.NODE_ENV === "development",
   logger: {
     error(code, metadata) {
-      console.error(`[NEXTAUTH_SIMPLIFIED_LOGGER_ERROR] Code: ${code}`, metadata)
+      console.error(`[NEXTAUTH_ROUTE_LOGGER_ERROR] Code: ${code}`, metadata)
       if (metadata instanceof Error) {
-        console.error("[NEXTAUTH_SIMPLIFIED_LOGGER_ERROR] Details:", {
+        console.error("[NEXTAUTH_ROUTE_LOGGER_ERROR] Détails:", {
           name: metadata.name,
           message: metadata.message,
           stack: metadata.stack,
         })
-      } else if (typeof metadata === "object" && metadata !== null && "error" in metadata) {
-        const nestedError = (metadata as any).error
-        console.error("[NEXTAUTH_SIMPLIFIED_LOGGER_ERROR] Nested Error (raw):", nestedError)
       }
     },
     warn(code) {
-      console.warn(`[NEXTAUTH_SIMPLIFIED_LOGGER_WARN] Code: ${code}`)
+      console.warn(`[NEXTAUTH_ROUTE_LOGGER_WARN] Code: ${code}`)
     },
   },
-  debug: false, // Keep debug off for this simplified test unless absolutely necessary for Vercel logs
-  ...(effectiveNextAuthUrl && { url: effectiveNextAuthUrl }),
 }
 
 let handler: any
 try {
-  console.log("[AUTH_INIT_SIMPLIFIED] Initializing NextAuth handler with EXTREMELY simplified options...")
+  if (!NEXTAUTH_SECRET || providers.length === 0) {
+    console.error(
+      "[ERREUR_AUTH_FATALE] Initialisation de NextAuth impossible: NEXTAUTH_SECRET manquant ou aucun provider configuré avec succès.",
+    )
+    throw new Error("NextAuth configuration incomplete for initialization.")
+  }
+  console.log("[INFO_AUTH] Initialisation du handler NextAuth...")
   handler = NextAuth(authOptions)
-  console.log("[AUTH_INIT_SIMPLIFIED] NextAuth handler initialized.")
+  console.log("[INFO_AUTH] Handler NextAuth initialisé avec succès.")
 } catch (error) {
-  console.error(
-    "[AUTH_ERROR_SIMPLIFIED] CRITICAL: NextAuth(authOptions) FAILED TO INITIALIZE even with simplified config:",
-    error,
-  )
-  handler = (req: Request, res: Response) =>
-    new Response("Internal Server Error: NextAuth failed during simplified critical initialization.", {
-      status: 500,
-      headers: { "Content-Type": "text/plain" },
-    })
+  console.error("[ERREUR_AUTH_FATALE] Échec de l'initialisation de NextAuth(authOptions):", error)
+  // Handler de secours en cas d'échec critique de l'initialisation
+  handler = () => {
+    return new Response(
+      "Erreur interne du serveur: Échec de l'initialisation de l'authentification. Vérifiez les logs serveur.",
+      {
+        status: 500,
+        headers: { "Content-Type": "text/plain" },
+      },
+    )
+  }
+  console.log("[INFO_AUTH] Utilisation du handler de secours suite à une erreur d'initialisation.")
 }
 
 export { handler as GET, handler as POST }
