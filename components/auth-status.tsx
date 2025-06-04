@@ -1,72 +1,61 @@
 "use client"
 
-import { useAuth } from "@/contexts/auth-context"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
-import { UserMenu } from "@/components/user-menu"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useRouter } from "next/navigation"
-import { Loader2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { signOut } from "next-auth/react"
+import Link from "next/link"
+import { useAuth } from "@/contexts/auth-context"
 
 export function AuthStatus() {
-  const { user, isLoading, isInitialized, isAuthenticated } = useAuth()
-  const router = useRouter()
-  const [retryCount, setRetryCount] = useState(0)
-  const [showFallback, setShowFallback] = useState(false)
+  const { data: session } = useSession()
+  const { isAuthenticated, user, isOffline } = useAuth()
 
-  // Effet pour afficher un fallback si le chargement prend trop de temps
-  useEffect(() => {
-    if (isLoading && !isInitialized) {
-      const timer = setTimeout(() => {
-        setShowFallback(true)
-      }, 3000) // Afficher le fallback après 3 secondes de chargement
-
-      return () => clearTimeout(timer)
-    }
-  }, [isLoading, isInitialized])
-
-  // Fonction pour forcer le rafraîchissement de l'état d'authentification
-  const handleRetry = () => {
-    setRetryCount((prev) => prev + 1)
-    setShowFallback(false)
-    window.location.reload() // Forcer le rechargement de la page
-  }
-
-  // Si l'initialisation n'est pas terminée et que le fallback n'est pas affiché, afficher un squelette
-  if ((isLoading || !isInitialized) && !showFallback) {
+  if (isAuthenticated) {
     return (
-      <div className="flex items-center gap-2">
-        <Skeleton className="h-8 w-24" />
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={user?.image || ""} alt={user?.name || "User"} />
+              <AvatarFallback>{user?.name?.charAt(0) || "U"}</AvatarFallback>
+            </Avatar>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end" forceMount>
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none">{user?.name}</p>
+              <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link href="/profile">Profile</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/settings">Settings</Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => signOut()} disabled={isOffline}>
+            {isOffline ? "Déconnexion indisponible hors ligne" : "Se déconnecter"}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     )
   }
 
-  // Si le fallback est affiché, proposer de réessayer
-  if (showFallback) {
-    return (
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={handleRetry} className="flex items-center gap-2">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Réessayer
-        </Button>
-      </div>
-    )
-  }
-
-  // Si l'utilisateur est authentifié, afficher le menu utilisateur
-  if (isAuthenticated && user) {
-    return <UserMenu user={user} />
-  }
-
-  // Sinon, afficher les boutons de connexion/inscription
   return (
-    <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" onClick={() => router.push("/auth")}>
-        Se connecter
-      </Button>
-      <Button size="sm" onClick={() => router.push("/auth?tab=signup")}>
-        S'inscrire
-      </Button>
-    </div>
+    <Button asChild variant="outline" size="sm">
+      <Link href="/auth">Se connecter</Link>
+    </Button>
   )
 }

@@ -1,5 +1,4 @@
 import { isOfflineModeEnabled } from "@/lib/offline-mode"
-import { getStockData } from "@/lib/stock-service"
 
 // Types pour les faits saillants du marché
 export interface StockHighlight {
@@ -44,51 +43,15 @@ export async function getMarketHighlights(limit = 3): Promise<MarketHighlights> 
   }
 
   try {
-    // Utiliser l'API Alpha Vantage pour les données de marché
-    const apiKey = process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY
+    // Utiliser notre API route au lieu d'appeler directement Alpha Vantage
+    const response = await fetch(`/api/market/highlights?limit=${limit}`)
 
-    if (!apiKey) {
-      throw new Error("Clé API Alpha Vantage non configurée")
+    if (!response.ok) {
+      throw new Error(`Erreur lors de la récupération des faits saillants: ${response.statusText}`)
     }
 
-    // Récupérer les données pour les actions populaires
-    const stockDataPromises = popularStocks.map((stock) => getStockData(stock.symbol))
-    const stocksData = await Promise.all(stockDataPromises)
-
-    // Combiner les données avec les noms des actions
-    const combinedData = stocksData
-      .map((data, index) => {
-        if (!data) return null
-
-        return {
-          symbol: popularStocks[index].symbol,
-          name: popularStocks[index].name,
-          price: data.price || 0,
-          change: data.change || 0,
-          changePercent: data.changePercent || 0,
-          volume: formatVolume(data.volume || 0),
-        }
-      })
-      .filter(Boolean) as StockHighlight[]
-
-    // Trier les données pour obtenir les top gagnants, perdants et plus actifs
-    const topGainers = [...combinedData].sort((a, b) => b.changePercent - a.changePercent).slice(0, limit)
-
-    const topLosers = [...combinedData].sort((a, b) => a.changePercent - b.changePercent).slice(0, limit)
-
-    const mostActive = [...combinedData]
-      .sort(
-        (a, b) =>
-          Number.parseInt(b.volume?.replace(/[^\d]/g, "") || "0") -
-          Number.parseInt(a.volume?.replace(/[^\d]/g, "") || "0"),
-      )
-      .slice(0, limit)
-
-    return {
-      topGainers,
-      topLosers,
-      mostActive,
-    }
+    const data = await response.json()
+    return data
   } catch (error) {
     console.error("Erreur lors de la récupération des faits saillants du marché:", error)
     return getMockMarketHighlights(limit)

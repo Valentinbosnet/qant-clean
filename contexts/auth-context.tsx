@@ -2,9 +2,10 @@
 
 import type React from "react"
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react"
-import type { Session, User, AuthError } from "@supabase/supabase-js"
+import type { Session, AuthError } from "@supabase/supabase-js"
 import { useToast } from "@/hooks/use-toast"
 import { getClientSupabase } from "@/lib/client-supabase"
+import { useSession } from "next-auth/react"
 
 // Define offline mode functions if they don't exist elsewhere
 const isOfflineMode = () => {
@@ -54,12 +55,13 @@ const hashPassword = (password: string) => {
 
 // Définition claire des types pour éviter les erreurs
 type AuthContextType = {
-  user: User | null
+  user: any | null
   session: Session | null
   isLoading: boolean
   isInitialized: boolean
   isAuthenticated: boolean
   isClient: boolean
+  isOffline: boolean
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
   signUp: (email: string, password: string) => Promise<{ error: AuthError | null; data: any }>
   signOut: () => Promise<void>
@@ -75,6 +77,7 @@ const defaultContextValue: AuthContextType = {
   isInitialized: false,
   isAuthenticated: false,
   isClient: false,
+  isOffline: false,
   signIn: async () => ({ error: null }),
   signUp: async () => ({ error: null, data: null }),
   signOut: async () => {},
@@ -87,15 +90,17 @@ const AuthContext = createContext<AuthContextType>(defaultContextValue)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   // États avec des types explicites
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<any | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [isInitialized, setIsInitialized] = useState<boolean>(false)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
   const [isClient, setIsClient] = useState<boolean>(false)
+  const [isOffline, setIsOffline] = useState<boolean>(false)
   const initAttempts = useRef<number>(0)
   const maxInitAttempts = 3
   const { toast } = useToast()
+  const { data: nextAuthSession, status } = useSession()
 
   // Fonction pour rafraîchir la session avec useCallback pour éviter les recréations inutiles
   const refreshSession = useCallback(async (): Promise<void> => {
@@ -107,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("AuthProvider - Mode hors ligne détecté dans refreshSession")
         const offlineUser = getOfflineUser()
         if (offlineUser) {
-          setUser(offlineUser as any)
+          setUser(offlineUser)
           setIsAuthenticated(true)
         }
         setIsLoading(false)
@@ -434,6 +439,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isInitialized,
       isAuthenticated,
       isClient,
+      isOffline,
       signIn,
       signUp,
       signOut,
@@ -447,6 +453,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isInitialized,
       isAuthenticated,
       isClient,
+      isOffline,
       signIn,
       signUp,
       signOut,

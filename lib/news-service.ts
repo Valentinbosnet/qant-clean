@@ -29,81 +29,18 @@ export async function getNews(category = "business", limit = 10): Promise<NewsRe
   }
 
   try {
-    // Utiliser l'API Alpha Vantage pour les actualités
-    const apiKey = process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY
-
-    if (!apiKey) {
-      throw new Error("Clé API Alpha Vantage non configurée")
-    }
-
-    const topics = category === "technology" ? "technology" : category === "general" ? "general" : "business"
-
-    const response = await fetch(
-      `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&topics=${topics}&apikey=${apiKey}`,
-    )
+    // Utiliser notre API route au lieu d'appeler directement Alpha Vantage
+    const response = await fetch(`/api/news?category=${category}&limit=${limit}`)
 
     if (!response.ok) {
       throw new Error(`Erreur lors de la récupération des actualités: ${response.statusText}`)
     }
 
     const data = await response.json()
-
-    // Formater les données pour correspondre à notre interface
-    const articles =
-      data.feed?.slice(0, limit).map((item: any, index: number) => ({
-        id: item.title ? `${index}-${item.title.substring(0, 20)}` : `article-${index}`,
-        title: item.title,
-        description: item.summary,
-        url: item.url,
-        source: {
-          id: item.source,
-          name: item.source,
-        },
-        publishedAt: formatDate(item.time_published),
-        urlToImage: item.banner_image || null,
-      })) || []
-
-    return {
-      articles,
-      status: "ok",
-      totalResults: articles.length,
-    }
+    return data
   } catch (error) {
     console.error("Erreur lors de la récupération des actualités:", error)
     return getMockNews(category, limit)
-  }
-}
-
-// Fonction pour formater la date
-function formatDate(dateString: string): string {
-  if (!dateString) return "Récemment"
-
-  try {
-    // Format Alpha Vantage: 20230615T123000
-    const year = dateString.substring(0, 4)
-    const month = dateString.substring(4, 6)
-    const day = dateString.substring(6, 8)
-    const hour = dateString.substring(9, 11)
-    const minute = dateString.substring(11, 13)
-
-    const date = new Date(`${year}-${month}-${day}T${hour}:${minute}:00`)
-
-    // Calculer le temps écoulé
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMin = Math.floor(diffMs / 60000)
-
-    if (diffMin < 60) return `Il y a ${diffMin} minute${diffMin > 1 ? "s" : ""}`
-
-    const diffHour = Math.floor(diffMin / 60)
-    if (diffHour < 24) return `Il y a ${diffHour} heure${diffHour > 1 ? "s" : ""}`
-
-    const diffDay = Math.floor(diffHour / 24)
-    if (diffDay < 30) return `Il y a ${diffDay} jour${diffDay > 1 ? "s" : ""}`
-
-    return date.toLocaleDateString()
-  } catch (e) {
-    return "Date inconnue"
   }
 }
 

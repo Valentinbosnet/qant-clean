@@ -1,12 +1,16 @@
 import type React from "react"
-import Head from "next/head"
-import "./globals.css"
 import type { Metadata } from "next"
-import { LayoutClient } from "./layout-client"
+import "./globals.css" // Assurez-vous que ce fichier existe
+import { ClientProviders } from "./client-providers" // Chemin vers votre composant de providers
 
 export const metadata: Metadata = {
   title: "Stock Dashboard",
-  description: "Track the performance of popular stocks",
+  description: "Track the performance of popular stocks",,
+  // Vous pouvez ajouter d'autres métadonnées ici, comme les icônes
+  // icons: {
+  //   icon: '/favicon.ico',
+  //   apple: '/apple-touch-icon.png',
+  // },
     generator: 'v0.dev'
 }
 
@@ -17,16 +21,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <Head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </Head>
       <body>
-        <LayoutClient>{children}</LayoutClient>
+        <ClientProviders>{children}</ClientProviders>
       </body>
     </html>
   )

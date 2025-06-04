@@ -1,18 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { ArrowRight } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useSession } from "next-auth/react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-export default function WelcomeWidget({ config }: { config: any }) {
-  // Extraire les paramètres de manière sécurisée
-  const settings = config?.settings && typeof config.settings === "object" ? config.settings : {}
-
-  // Utiliser des valeurs primitives pour les paramètres
-  const showGetStarted = settings.showGetStarted === true
-  const showSignup = settings.showSignup === true
-
+export default function WelcomeWidget() {
+  const { data: session } = useSession()
   const [userName, setUserName] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -41,34 +35,19 @@ export default function WelcomeWidget({ config }: { config: any }) {
   }
 
   return (
-    <div className="p-4 space-y-4">
-      <h3 className="text-2xl font-bold">
-        {isAuthenticated ? `Bienvenue, ${userName || "Investisseur"}!` : "Bienvenue sur Stock Dashboard"}
-      </h3>
-      <p className="text-muted-foreground">
-        {isAuthenticated
-          ? "Suivez vos investissements, analysez les tendances du marché et prenez des décisions éclairées grâce à notre plateforme d'analyse boursière."
-          : "Découvrez notre plateforme d'analyse boursière pour suivre les marchés, obtenir des prédictions IA et prendre de meilleures décisions d'investissement."}
-      </p>
-
-      {showGetStarted && isAuthenticated && (
-        <Button variant="default" className="mt-4">
-          Tableau de bord <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
-      )}
-
-      {showSignup && !isAuthenticated && (
-        <div className="flex flex-wrap gap-3">
-          <Button variant="default" className="mt-4" asChild>
-            <a href="/auth">
-              Créer un compte <ArrowRight className="ml-2 h-4 w-4" />
-            </a>
-          </Button>
-          <Button variant="outline" className="mt-4" asChild>
-            <a href="/search">Explorer sans compte</a>
-          </Button>
-        </div>
-      )}
-    </div>
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>
+          {session ? `Bienvenue, ${session.user.name || "Investisseur"}!` : "Bienvenue sur Stock Dashboard"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-muted-foreground">
+          {session
+            ? "Vous êtes connecté. Découvrez nos dernières fonctionnalités."
+            : "Connectez-vous pour accéder à toutes les fonctionnalités. Découvrez notre plateforme d'analyse boursière pour suivre les marchés, obtenir des prédictions IA et prendre de meilleures décisions d'investissement."}
+        </p>
+      </CardContent>
+    </Card>
   )
 }

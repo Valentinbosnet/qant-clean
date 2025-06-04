@@ -3,7 +3,7 @@ export const generateStaticParams = () => {
   return []
 }
 
-export default function NotesStaticPage() {
+export default function StorageStaticPage() {
   return (
     <div
       style={{
@@ -33,7 +33,7 @@ export default function NotesStaticPage() {
               marginBottom: "1rem",
             }}
           >
-            Mes Notes
+            Stockage
           </h1>
           <p
             style={{
@@ -42,7 +42,7 @@ export default function NotesStaticPage() {
               marginBottom: "2rem",
             }}
           >
-            Gérez vos notes et analyses personnelles
+            Gérez vos fichiers et documents
           </p>
 
           <div
@@ -61,7 +61,7 @@ export default function NotesStaticPage() {
                 margin: 0,
               }}
             >
-              Connectez-vous pour accéder à vos notes personnelles
+              Connectez-vous pour accéder à votre espace de stockage
             </p>
           </div>
         </div>
@@ -81,7 +81,7 @@ export default function NotesStaticPage() {
               marginBottom: "1rem",
             }}
           >
-            📝
+            📁
           </div>
           <h3
             style={{
@@ -91,7 +91,7 @@ export default function NotesStaticPage() {
               marginBottom: "0.5rem",
             }}
           >
-            Aucune note disponible
+            Espace de stockage vide
           </h3>
           <p
             style={{
@@ -99,7 +99,7 @@ export default function NotesStaticPage() {
               marginBottom: "2rem",
             }}
           >
-            Vos notes apparaîtront ici une fois que vous serez connecté
+            Vos fichiers apparaîtront ici une fois que vous serez connecté
           </p>
 
           <div
@@ -130,11 +130,11 @@ export default function NotesStaticPage() {
                 paddingLeft: "1rem",
               }}
             >
-              <li>Création et édition de notes</li>
-              <li>Organisation par catégories</li>
-              <li>Recherche dans les notes</li>
-              <li>Partage de notes</li>
-              <li>Synchronisation cloud</li>
+              <li>Upload de fichiers</li>
+              <li>Organisation en dossiers</li>
+              <li>Partage de fichiers</li>
+              <li>Prévisualisation</li>
+              <li>Gestion des permissions</li>
             </ul>
           </div>
         </div>

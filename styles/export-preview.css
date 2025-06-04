@@ -1,0 +1,251 @@
+/* Export Preview Styles */
+
+.export-preview-container {
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.export-preview-header {
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 1rem;
+  display: flex;
+  justify-content: between;
+  align-items: center;
+}
+
+.export-preview-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.export-preview-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.export-preview-button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid #d1d5db;
+  background-color: white;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.export-preview-button:hover {
+  background-color: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.export-preview-button-primary {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.export-preview-button-primary:hover {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.export-preview-content {
+  padding: 1.5rem;
+}
+
+.export-preview-section {
+  margin-bottom: 2rem;
+}
+
+.export-preview-section:last-child {
+  margin-bottom: 0;
+}
+
+.export-preview-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.export-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.export-preview-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  background-color: #fafafa;
+}
+
+.export-preview-card-title {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.export-preview-card-content {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.export-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.export-preview-table th,
+.export-preview-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.export-preview-table th {
+  background-color: #f9fafb;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.export-preview-table td {
+  color: #6b7280;
+}
+
+.export-preview-chart {
+  height: 300px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.export-preview-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #9ca3af;
+}
+
+.export-preview-loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #f3f4f6;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 0.5rem;
+}
+
+.export-preview-error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  color: #dc2626;
+  text-align: center;
+}
+
+.export-preview-success {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  color: #166534;
+  text-align: center;
+}
+
+/* Format specific styles */
+.export-preview-pdf {
+  background-color: #dc2626;
+  color: white;
+}
+
+.export-preview-excel {
+  background-color: #16a34a;
+  color: white;
+}
+
+.export-preview-csv {
+  background-color: #2563eb;
+  color: white;
+}
+
+.export-preview-json {
+  background-color: #7c3aed;
+  color: white;
+}
+
+/* Print styles */
+@media print {
+  .export-preview-header,
+  .export-preview-actions {
+    display: none;
+  }
+
+  .export-preview-container {
+    box-shadow: none;
+    border: none;
+  }
+
+  .export-preview-content {
+    padding: 0;
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .export-preview-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .export-preview-actions {
+    justify-content: stretch;
+  }
+
+  .export-preview-button {
+    flex: 1;
+    text-align: center;
+  }
+
+  .export-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .export-preview-table {
+    font-size: 0.875rem;
+  }
+
+  .export-preview-table th,
+  .export-preview-table td {
+    padding: 0.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .export-preview-content {
+    padding: 1rem;
+  }
+
+  .export-preview-chart {
+    height: 200px;
+  }
+}

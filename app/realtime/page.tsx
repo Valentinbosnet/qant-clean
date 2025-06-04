@@ -3,7 +3,7 @@ export const generateStaticParams = () => {
   return []
 }
 
-export default function MarketPredictionsStaticPage() {
+export default function RealtimeStaticPage() {
   return (
     <div
       style={{
@@ -33,7 +33,7 @@ export default function MarketPredictionsStaticPage() {
               marginBottom: "1rem",
             }}
           >
-            Prédictions du Marché
+            Données en Temps Réel
           </h1>
           <p
             style={{
@@ -42,7 +42,7 @@ export default function MarketPredictionsStaticPage() {
               marginBottom: "2rem",
             }}
           >
-            Analyses et prédictions IA pour les actions du marché
+            Suivez les données de marché en temps réel
           </p>
 
           <div
@@ -72,7 +72,7 @@ export default function MarketPredictionsStaticPage() {
                   animation: "spin 1s linear infinite",
                 }}
               ></div>
-              <span style={{ marginLeft: "0.5rem", color: "#374151" }}>Chargement des prédictions...</span>
+              <span style={{ marginLeft: "0.5rem", color: "#374151" }}>Connexion aux données en temps réel...</span>
             </div>
             <p
               style={{
@@ -81,7 +81,7 @@ export default function MarketPredictionsStaticPage() {
                 margin: 0,
               }}
             >
-              Les prédictions du marché seront disponibles après le déploiement
+              Les données en temps réel seront disponibles après le déploiement
             </p>
           </div>
         </div>
@@ -89,13 +89,13 @@ export default function MarketPredictionsStaticPage() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
             gap: "1.5rem",
             marginTop: "2rem",
           }}
         >
-          {/* Placeholder pour les prédictions */}
-          {[1, 2, 3, 4, 5, 6].map((i) => (
+          {/* Placeholder pour les données en temps réel */}
+          {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
               style={{
@@ -123,26 +123,17 @@ export default function MarketPredictionsStaticPage() {
                 ></div>
                 <div
                   style={{
-                    width: "80px",
-                    height: "20px",
-                    backgroundColor: "#e5e7eb",
-                    borderRadius: "0.25rem",
+                    width: "8px",
+                    height: "8px",
+                    backgroundColor: "#10b981",
+                    borderRadius: "50%",
                   }}
                 ></div>
               </div>
               <div
                 style={{
-                  width: "100%",
-                  height: "100px",
-                  backgroundColor: "#e5e7eb",
-                  borderRadius: "0.25rem",
-                  marginBottom: "1rem",
-                }}
-              ></div>
-              <div
-                style={{
-                  width: "70%",
-                  height: "16px",
+                  width: "80px",
+                  height: "24px",
                   backgroundColor: "#e5e7eb",
                   borderRadius: "0.25rem",
                   marginBottom: "0.5rem",
@@ -150,7 +141,7 @@ export default function MarketPredictionsStaticPage() {
               ></div>
               <div
                 style={{
-                  width: "50%",
+                  width: "60px",
                   height: "16px",
                   backgroundColor: "#e5e7eb",
                   borderRadius: "0.25rem",
@@ -194,11 +185,11 @@ export default function MarketPredictionsStaticPage() {
                 paddingLeft: "1rem",
               }}
             >
-              <li>Prédictions IA en temps réel</li>
-              <li>Analyse technique avancée</li>
-              <li>Filtres par secteur</li>
-              <li>Comparaison de performances</li>
-              <li>Alertes de prédictions</li>
+              <li>Prix en temps réel</li>
+              <li>Volumes de trading</li>
+              <li>Indicateurs techniques</li>
+              <li>Alertes instantanées</li>
+              <li>Graphiques interactifs</li>
             </ul>
           </div>
         </div>

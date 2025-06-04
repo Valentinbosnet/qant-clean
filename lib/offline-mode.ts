@@ -997,3 +997,131 @@ export async function syncOfflineData(): Promise<boolean> {
     return false
   }
 }
+
+/**
+ * Get all offline users
+ * @returns {any[]} Array of offline users
+ */
+export function getOfflineUsers(): any[] {
+  if (typeof window === "undefined") {
+    return []
+  }
+
+  try {
+    const usersJson = localStorage.getItem("offline_users")
+    return usersJson ? JSON.parse(usersJson) : []
+  } catch (error) {
+    console.error("Error getting offline users:", error)
+    return []
+  }
+}
+
+/**
+ * Add offline user
+ * @param {any} user - User to add
+ * @param {string} password - User password
+ * @returns {boolean} True if successful
+ */
+export function addOfflineUser(user: any, password: string): boolean {
+  if (typeof window === "undefined") {
+    return false
+  }
+
+  try {
+    const users = getOfflineUsers()
+    const userToAdd = {
+      ...user,
+      hashedPassword: hashPassword(password),
+      id: user.id || Date.now().toString(),
+    }
+
+    // Check if user already exists
+    const existingIndex = users.findIndex((u) => u.email === user.email)
+    if (existingIndex >= 0) {
+      users[existingIndex] = userToAdd
+    } else {
+      users.push(userToAdd)
+    }
+
+    localStorage.setItem("offline_users", JSON.stringify(users))
+    return true
+  } catch (error) {
+    console.error("Error adding offline user:", error)
+    return false
+  }
+}
+
+/**
+ * Get current offline user
+ * @returns {any} Current offline user or null
+ */
+export function getCurrentOfflineUser(): any {
+  return getOfflineUser()
+}
+
+/**
+ * Check if user is offline authenticated
+ * @returns {boolean} True if authenticated offline
+ */
+export function isOfflineAuthenticated(): boolean {
+  return getOfflineUser() !== null
+}
+
+/**
+ * Check internet connection
+ * @returns {Promise<boolean>} True if connected
+ */
+export async function checkInternetConnection(): Promise<boolean> {
+  if (typeof window === "undefined") {
+    return false
+  }
+
+  try {
+    const response = await fetch("/api/health", {
+      method: "HEAD",
+      cache: "no-cache",
+    })
+    return response.ok
+  } catch (error) {
+    return false
+  }
+}
+
+/**
+ * Toggle offline mode
+ * @returns {boolean} New offline mode state
+ */
+export function toggleOfflineMode(): boolean {
+  const currentMode = isOfflineMode()
+  const newMode = !currentMode
+  setOfflineMode(newMode)
+  return newMode
+}
+
+/**
+ * Add to offline queue
+ * @param {any} action - Action to queue
+ * @returns {boolean} True if successful
+ */
+export function addToOfflineQueue(action: any): boolean {
+  if (typeof window === "undefined") {
+    return false
+  }
+
+  try {
+    const queueJson = localStorage.getItem("offline_queue")
+    const queue = queueJson ? JSON.parse(queueJson) : []
+
+    queue.push({
+      ...action,
+      timestamp: Date.now(),
+      id: Date.now().toString(),
+    })
+
+    localStorage.setItem("offline_queue", JSON.stringify(queue))
+    return true
+  } catch (error) {
+    console.error("Error adding to offline queue:", error)
+    return false
+  }
+}
